@@ -40,7 +40,7 @@ class ShutdownHandler(logging.StreamHandler):
 class GenWGFormatter(logging.Formatter):
     _FMT_DATE = "%H:%M:%S"
 
-    _FMT_BEGIN = f"{c.BBLK}[{c.LCYN}%(asctime)s{c.BBLK}][{c.BWHI}%(name)s{c.BBLK}]["
+    _FMT_BEGIN = f"["
     _FMT_END = f"{c.BBLK}]{c.RES}"
 
     _FORMATS = {

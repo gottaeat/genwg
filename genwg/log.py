@@ -37,7 +37,7 @@ class ShutdownHandler(logging.StreamHandler):
             sys.exit(1)
 
 
-class BandsFormatter(logging.Formatter):
+class GenWGFormatter(logging.Formatter):
     _FMT_DATE = "%H:%M:%S"
 
     _FMT_BEGIN = f"{c.BBLK}[{c.LCYN}%(asctime)s{c.BBLK}][{c.BWHI}%(name)s{c.BBLK}]["

@@ -51,6 +51,7 @@ class ConfigYAML:
         self.clients = []
         self.servers = []
         self.udp2raw = None
+        self.bind = None
 
     def gen_wg_priv(self):
         try:
@@ -204,6 +205,7 @@ class ConfigYAML:
 
             self.clients.append(clconf)
 
+        need_udp2raw = False
         for server in self.servers:
             if server.proto == "tcp":
                 self.logger.info("found a server that requires udp2raw")
@@ -241,8 +243,9 @@ class ConfigYAML:
 
             self.udp2raw = u2rconf
 
+        need_bind = False
         for client in self.clients:
-            if client.bind == "true":
+            if client.bind == True:
                 self.logger.info("found a client that requires bind")
                 need_bind = True
                 break

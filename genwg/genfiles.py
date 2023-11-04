@@ -4,6 +4,7 @@ import time
 
 import yaml
 
+
 # pylint: disable=too-few-public-methods
 class GenFiles:
     def __init__(self):
@@ -148,7 +149,12 @@ class GenFiles:
             yaml_dict["servers"].append(sv_dict)
 
         for client in self.clients:
-            cl_dict = {"name": client.name, "tcp": client.tcp, "bind": client.bind}
+            cl_dict = {
+                "name": client.name,
+                "priv": client.priv,
+                "tcp": client.tcp,
+                "bind": client.bind,
+            }
 
             yaml_dict["clients"].append(cl_dict)
 

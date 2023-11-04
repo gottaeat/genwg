@@ -1,2 +1,75 @@
 genwg
 =====
+automatic wireguard client and server generation with wireguard over tcp
+support and system resolver awareness.
+
+installation
+------------
+git clone --depth=1 https://github.com/gottaeat/genwg
+cd genwg/
+pip install .
+
+expected yaml format
+--------------------
+servers:
+    - name: mywg0
+      proto: udp
+      priv: iKZHflgCun4YGuhpA2JSwlqSyqf5o3rXLN8EwZb/B3g=
+      ip: 1.1.1.1.1
+      port: 51821
+      net: 10.0.0.0/24
+      mtu: 1420
+
+    - name: mywg0-tcp
+      proto: tcp
+      priv: kFXCBzgFFkB2wNApY3soW1lsizh1q1jVpIxplxbIRFQ=
+      ip: 1.1.1.1
+      port: 51820
+      net: 10.0.1.0/24
+      mtu: 1340
+
+clients:
+    - name: windows-box
+      tcp: false
+      bind: false
+
+    - name: android-phone
+      tcp: true
+      bind: false
+
+    - name: linux-desktop
+      priv: MCfxMuwvNhlsmLjIxzIr9wJ2K75hc2+rufrnZuTqJ0I=
+      tcp: true
+      bind: true
+
+udp2raw:
+    - secret: verysecret 
+      port: 6971
+
+yaml fields
+-----------
+> servers
+ - name  : (required) name for the wireguard interface.
+ - proto : (required) either `tcp' or `udp'.
+ - priv  : (optional) wireguard private key. will be generated if not specified.
+ - ip    : (required) public facing ipv4 address of the box running the
+                      wireguard server.
+ - port  : (required) port to run wireguard on.
+ - net   : (required) wireguard subnet for the interface.
+ - mtu   : (required) mtu value for the wireguard interface.
+
+> clients
+ - name  : (required) name to differentiate between clients, the interface
+                      naming is left to the end user.
+ - priv  : (optional) wireguard private key. will be generated if not specified.
+ - tcp   : (optional) if this is set to true, udp2raw logic will be enabled.
+                      this requires linux or android. set to false if not
+                      specified
+ - bind  : (optional) if this is set to true, the user will be forwarding all of
+                      their dns queries to the dns server running on the
+                      wireguard server while keeping their local zone. set to
+                      false if not specified.
+
+> udp2raw:
+ - secret: (optional) udp2raw secret, will be generated if not specified.
+ - port  : (required) udp2raw port.

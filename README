@@ -73,3 +73,10 @@ yaml fields
 > udp2raw:
  - secret: (optional) udp2raw secret, will be generated if not specified.
  - port  : (required) udp2raw port.
+
+> bind:
+ - root_zone: (optional) a root zone file to be default back to when the
+                         interface is brought down.
+
+note: udp2raw and bind fields become required if client is set to use tcp or
+      bind.

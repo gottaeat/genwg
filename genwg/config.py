@@ -24,7 +24,9 @@ class ServerConfig:
         ip = None
         port = None
         net = None
+        pfx = None
         mtu = None
+        last_ip = None
 
 
 class UDP2RAWConfig:
@@ -98,11 +100,16 @@ class ConfigYAML:
                 self.logger.exception("invalid port")
 
             try:
-                svconf.net = ipaddress.ip_network(server["net"], strict=False)
+                yaml_net = ipaddress.ip_network(server["net"])
             except ValueError:
                 self.logger.exception("invalid network")
 
-            if svconf.net.prefixlen == 32:
+            svconf.net = yaml_net.network_address
+            svconf.pfx = yaml_net.prefixlen
+
+            svconf.last_ip = svconf.net.network_address + 1
+
+            if svconf.pfx == 32:
                 self.logger.exception("network cannot be a /32")
 
             try:

@@ -137,7 +137,7 @@ class GenFiles:
     def _save_yaml(self):
         self.logger.info("generating yaml")
 
-        yaml_dict = {"servers": [], "clients": [], "udp2raw": []}
+        yaml_dict = {"servers": [], "clients": [], "udp2raw": [], "bind": []}
 
         for server in self.servers:
             sv_dict = {
@@ -165,6 +165,8 @@ class GenFiles:
         yaml_dict["udp2raw"].append(
             {"secret": self.udp2raw.secret, "port": self.udp2raw.port}
         )
+
+        yaml_dict["bind"].append({"root_zone": self.bind.root_zone})
 
         yaml_str = yaml.dump(yaml_dict, sort_keys=False)
 

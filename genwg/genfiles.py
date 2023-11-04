@@ -155,18 +155,28 @@ class GenFiles:
         for client in self.clients:
             cl_dict = {
                 "name": client.name,
-                "priv": client.priv,
-                "tcp": client.tcp,
-                "bind": client.bind,
+                "priv": client.priv
             }
+
+            if client.tcp:
+                cl_dict["tcp"] = client.tcp
+
+            if client.bind:
+                cl_dict["bind"] = client.bind
 
             yaml_dict["clients"].append(cl_dict)
 
-        yaml_dict["udp2raw"].append(
-            {"secret": self.udp2raw.secret, "port": self.udp2raw.port}
-        )
+        try:
+            yaml_dict["udp2raw"].append(
+                {"secret": self.udp2raw.secret, "port": self.udp2raw.port}
+            )
+        except AttributeError:
+            del yaml_dict['udp2raw']
 
-        yaml_dict["bind"].append({"root_zone": self.bind.root_zone})
+        try:
+            yaml_dict["bind"].append({"root_zone": self.bind.root_zone})
+        except AttributeError:
+            del yaml_dict['bind']
 
         yaml_str = yaml.dump(yaml_dict, sort_keys=False)
 

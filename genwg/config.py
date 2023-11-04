@@ -1,38 +1,41 @@
 import ipaddress
 import os
+import secrets
+import subprocess
 
 import yaml
 
-from .util import gen_wg_priv, gen_wg_pub
 
-
+# pylint: disable=too-few-public-methods
 class ClientConfig:
     def __init__(self):
-        name = None
-        priv = None
-        pub = None
-        tcp = None
-        bind = None
+        self.name = None
+        self.priv = None
+        self.pub = None
+        self.tcp = None
+        self.bind = None
 
 
+# pylint: disable=too-many-instance-attributes
 class ServerConfig:
     def __init__(self):
-        proto = None
-        name = None
-        priv = None
-        pub = None
-        ip = None
-        port = None
-        net = None
-        pfx = None
-        mtu = None
-        last_ip = None
+        self.proto = None
+        self.name = None
+        self.priv = None
+        self.pub = None
+        # pylint: disable=invalid-name
+        self.ip = None
+        self.port = None
+        self.net = None
+        self.pfx = None
+        self.mtu = None
+        self.last_ip = None
 
 
 class UDP2RAWConfig:
     def __init__(self):
-        secret = None
-        port = None
+        self.secret = None
+        self.port = None
 
 
 class ConfigYAML:
@@ -45,6 +48,27 @@ class ConfigYAML:
         self.servers = []
         self.udp2raw = None
 
+    def gen_wg_priv(self):
+        try:
+            proc = subprocess.run(["wg", "genkey"], check=True, capture_output=True)
+        except subprocess.CalledProcessError as exc:
+            self.logger.error("%s", exc.stderr.decode("utf-8"))
+
+        return proc.stdout.decode("utf-8").rstrip("\n")
+
+    def gen_wg_pub(self, priv_key):
+        priv_key = f"{priv_key}\n".encode("utf-8")
+
+        try:
+            proc = subprocess.run(
+                ["wg", "pubkey"], input=priv_key, check=True, capture_output=True
+            )
+        except subprocess.CalledProcessError as exc:
+            self.logger.error("%s", exc.stderr.decode("utf-8"))
+
+        return proc.stdout.decode("utf-8").rstrip("\n")
+
+    # pylint: disable=too-many-locals,too-many-branches,too-many-statements
     def parse_yaml(self):
         self.logger.info("parsing configuration")
 
@@ -82,12 +106,12 @@ class ConfigYAML:
             try:
                 svconf.priv = str(server["priv"])
             except KeyError:
-                svconf.priv = gen_wg_priv()
+                svconf.priv = self.gen_wg_priv()
 
-            if svconf.priv is None:
-                svconf.priv = gen_wg_priv()
+            if svconf.priv == "None":
+                svconf.priv = self.gen_wg_priv()
 
-            svconf.pub = gen_wg_pub(f"{svconf.priv.encode('utf-8')}\n")
+            svconf.pub = self.gen_wg_pub(svconf.priv)
 
             try:
                 svconf.ip = ipaddress.ip_address(server["ip"])
@@ -107,7 +131,7 @@ class ConfigYAML:
             svconf.net = yaml_net.network_address
             svconf.pfx = yaml_net.prefixlen
 
-            svconf.last_ip = svconf.net.network_address + 1
+            svconf.last_ip = svconf.net + 1
 
             if svconf.pfx == 32:
                 self.logger.exception("network cannot be a /32")
@@ -145,12 +169,12 @@ class ConfigYAML:
             try:
                 clconf.priv = str(client["priv"])
             except KeyError:
-                clconf.priv = gen_wg_priv()
+                clconf.priv = self.gen_wg_priv()
 
-            if clconf.priv is None:
-                clconf.priv = gen_wg_priv()
+            if clconf.priv == "None":
+                clconf.priv = self.gen_wg_priv()
 
-            clconf.pub = gen_wg_pub(f"{clconf.priv.encode('utf-8')}\n")
+            clconf.pub = self.gen_wg_pub(clconf.priv)
 
             try:
                 if type(client["tcp"]).__name__ != "bool":
@@ -158,11 +182,15 @@ class ConfigYAML:
             except KeyError:
                 clconf.tcp = False
 
+            clconf.tcp = client["tcp"]
+
             try:
                 if type(client["bind"]).__name__ != "bool":
                     self.logger.error("bind must be a bool")
             except KeyError:
                 clconf.bind = False
+
+            clconf.bind = client["bind"]
 
             self.clients.append(clconf)
 
@@ -176,7 +204,7 @@ class ConfigYAML:
             self.logger.info("parsing udp2raw")
 
             try:
-                udp2raw = yaml_parsed["udp2raw"]
+                udp2raw = yaml_parsed["udp2raw"][0]
             except KeyError:
                 self.logger.exception("udp2raw section in the YAML file is missing")
 
@@ -192,5 +220,13 @@ class ConfigYAML:
                 u2rconf.port = int(udp2raw["port"])
             except ValueError:
                 self.logger.exception("invalid udp2raw port")
+
+            try:
+                u2rconf.secret = str(udp2raw["secret"])
+            except KeyError:
+                u2rconf.secret = secrets.token_urlsafe(12)
+
+            if u2rconf.secret == "None":
+                u2rconf.secret = secrets.token_urlsafe(12)
 
             self.udp2raw = u2rconf

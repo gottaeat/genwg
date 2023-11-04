@@ -37,6 +37,7 @@ class UDP2RAWConfig:
         self.secret = None
         self.port = None
 
+
 class BINDConfig:
     def __init__(self):
         self.root_zone = None
@@ -245,7 +246,7 @@ class ConfigYAML:
 
         need_bind = False
         for client in self.clients:
-            if client.bind == True:
+            if client.bind:
                 self.logger.info("found a client that requires bind")
                 need_bind = True
                 break

@@ -13,6 +13,7 @@ class GenFiles:
         self.servers = None
         self.clients = None
         self.udp2raw = None
+        self.bind = None
 
     def _create_dirs(self):
         self.logger.info("creating directories")
@@ -40,48 +41,51 @@ class GenFiles:
         conf += "[Interface]\n"
         conf += f"Address = {server.last_ip}/32\n"
         conf += f"PrivateKey = {client.priv}\n"
-        conf += f"MTU = {server.mtu}\n"
+        conf += f"MTU = {server.mtu}\n\n"
 
-        if not client.bind:
-            conf += "DNS = {server.net + 1}\n"
+        if client.bind:
+            conf += 'PostUp = mkdir -p "/tmp/bind"\n'
+            conf += 'PostUp = echo "zone \\".\\" { type forward; forwarders '
+            conf += f'{{ {server.net + 1}; }}; }};" '
+            conf += '> "/tmp/bind/named.conf.local"\n'
+            conf += "PostUp = rndc reload\n"
+
+            conf += 'PreDown = mkdir -p "/tmp/bind"\n'
+            conf += 'PreDown = echo "zone \\".\\" { type hint; file '
+            conf += f'\\"{self.bind.root_zone}\\"; }};" '
+            conf += '> "/tmp/bind/named.conf.local"\n'
+            conf += "PreDown = rndc reload\n"
+        else:
+            conf += f"DNS = {server.net + 1}\n"
 
         if server.proto == "tcp" and client.tcp:
-            conf += f"\nPreUp = ip route add {server.ip} via `ip route list match "
+            conf += f"PreUp = ip route add {server.ip} via `ip route list match "
             conf += "0 table all scope global | awk '{print $3}'` dev `ip route "
             conf += "list match 0 table all scope global | awk '{print $5}'`\n"
 
             conf += "PreUp = udp2raw -c -l 127.0.0.1:50001 -r "
             conf += f'{server.ip}:{self.udp2raw.port} -k "{self.udp2raw.secret}" '
-            conf += "-a >/var/log/udp2raw.log 2>&1 &\n\n"
+            conf += "-a >/var/log/udp2raw.log 2>&1 &\n"
 
-            conf += f"\nPostDown = ip route del {server.ip} via `ip route list match "
+            conf += f"PostDown = ip route del {server.ip} via `ip route list match "
             conf += "0 table all scope global | awk '{print $3}'` dev `ip route "
             conf += "list match 0 table all scope global | awk '{print $5}'`\n"
 
-            conf += "PostDown = pkill -15 udp2raw || true\n\n"
+            conf += "PostDown = pkill -15 udp2raw || true\n"
 
-        if client.bind:
-            conf += "PostUp = mkdir -p /tmp/bind\n"
-            conf += 'PostUp = echo "zone \\".\\" {{ type forward; forwarders '
-            conf += f'{{ {server.net + 1}; }}; }};" '
-            conf += '> "/tmp/bind/named.conf.local"\n'
-            conf += "PostUp = rndc reload\n\n"
-
-            conf += "PreDown = mkdir -p /tmp/bind\n"
-            conf += 'PreDown = echo "zone \\".\\" { type hint; file '
-            conf += '"/var/named/zone.root-nov6"; };" > '
-            conf += '"/tmp/bind/named.conf.local"\n'
-            conf += "PreDown = rndc reload\n\n"
-
-        conf += "[Peer]\n"
+        conf += "\n[Peer]\n"
         conf += f"PublicKey = {server.pub}\n"
 
-        if client.tcp:
+        if server.proto == "tcp":
             conf += "Endpoint = 127.0.0.1:50001\n"
         else:
             conf += f"Endpoint = {server.ip}:{server.port}\n"
         conf += "AllowedIPs = 0.0.0.0/0\n"
-        conf += "PersistentKeepalive = 120\n"
+
+        if server.proto == "tcp":
+            conf += "PersistentKeepalive = 120\n"
+        else:
+            conf += "PersistentKeepalive = 25\n"
 
         with open(
             f"./client/{client.name}-{server.name}.conf", "w", encoding="utf-8"

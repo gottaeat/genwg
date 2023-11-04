@@ -9,6 +9,8 @@ from .util import gen_wg_priv, gen_wg_pub
 class ClientConfig:
     def __init__(self):
         name = None
+        priv = None
+        pub = None
         tcp = None
         bind = None
 
@@ -132,6 +134,16 @@ class ConfigYAML:
 
             clconf = ClientConfig()
             clconf.name = str(client["name"])
+
+            try:
+                clconf.priv = str(client["priv"])
+            except KeyError:
+                clconf.priv = gen_wg_priv()
+
+            if clconf.priv is None:
+                clconf.priv = gen_wg_priv()
+
+            clconf.pub = gen_wg_pub(f"{clconf.priv.encode('utf-8')}\n")
 
             try:
                 if type(client["tcp"]).__name__ != "bool":

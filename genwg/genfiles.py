@@ -1,6 +1,8 @@
-import shutil
 import os
+import shutil
+import time
 
+import yaml
 
 # pylint: disable=too-few-public-methods
 class GenFiles:
@@ -16,7 +18,7 @@ class GenFiles:
 
         for i in ["server", "client"]:
             if os.path.exists(i):
-                self.logger.warning("collision found, removing")
+                self.logger.warning(" - collision found, removing")
 
                 try:
                     shutil.rmtree(i)
@@ -127,6 +129,42 @@ class GenFiles:
             with open(f"./server/{server.name}.conf", "w", encoding="utf-8") as svfile:
                 svfile.write(svconf)
 
+    def _save_yaml(self):
+        self.logger.info("generating yaml")
+
+        yaml_dict = {"servers": [], "clients": [], "udp2raw": []}
+
+        for server in self.servers:
+            sv_dict = {
+                "name": server.name,
+                "proto": server.proto,
+                "priv": server.priv,
+                "ip": str(server.ip),
+                "port": server.port,
+                "net": f"{str(server.net)}/{server.pfx}",
+                "mtu": server.mtu,
+            }
+
+            yaml_dict["servers"].append(sv_dict)
+
+        for client in self.clients:
+            cl_dict = {"name": client.name, "tcp": client.tcp, "bind": client.bind}
+
+            yaml_dict["clients"].append(cl_dict)
+
+        yaml_dict["udp2raw"].append(
+            {"secret": self.udp2raw.secret, "port": self.udp2raw.port}
+        )
+
+        yaml_str = yaml.dump(yaml_dict, sort_keys=False)
+
+        yaml_filename = f"{time.strftime('%Y%m%d_%H%M%S')}-genpw.yml"
+        self.logger.info("saving current state as: %s", yaml_filename)
+
+        with open(yaml_filename, "w", encoding="utf-8") as yaml_file:
+            yaml_file.write(yaml_str)
+
     def run(self):
         self._create_dirs()
         self._create_servers()
+        self._save_yaml()

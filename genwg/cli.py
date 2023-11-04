@@ -53,6 +53,7 @@ class CLI:
         genfiles.clients = config.clients
         genfiles.servers = config.servers
         genfiles.udp2raw = config.udp2raw
+        genfiles.bind = config.bind
 
         genfiles.logger = self.logger
 

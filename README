@@ -46,6 +46,9 @@ udp2raw:
     - secret: verysecret 
       port: 6971
 
+bind:
+    - root_zone: /var/named/zone.root-nov6
+
 yaml fields
 -----------
 > servers

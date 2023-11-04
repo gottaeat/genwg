@@ -1,3 +1,6 @@
+import subprocess
+
+
 def gen_wg_priv():
     return (
         subprocess.run(["wg", "genkey"], check=True, capture_output=True)

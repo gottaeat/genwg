@@ -37,6 +37,10 @@ class UDP2RAWConfig:
         self.secret = None
         self.port = None
 
+class BINDConfig:
+    def __init__(self):
+        self.root_zone = None
+
 
 class ConfigYAML:
     def __init__(self, config_file):
@@ -180,17 +184,23 @@ class ConfigYAML:
                 if type(client["tcp"]).__name__ != "bool":
                     self.logger.error("tcp must be a bool")
             except KeyError:
-                clconf.tcp = False
+                pass
 
-            clconf.tcp = client["tcp"]
+            try:
+                clconf.tcp = client["tcp"]
+            except KeyError:
+                clconf.tcp = False
 
             try:
                 if type(client["bind"]).__name__ != "bool":
                     self.logger.error("bind must be a bool")
             except KeyError:
-                clconf.bind = False
+                pass
 
-            clconf.bind = client["bind"]
+            try:
+                clconf.bind = client["bind"]
+            except KeyError:
+                clconf.bind = False
 
             self.clients.append(clconf)
 
@@ -230,3 +240,32 @@ class ConfigYAML:
                 u2rconf.secret = secrets.token_urlsafe(12)
 
             self.udp2raw = u2rconf
+
+        for client in self.clients:
+            if client.bind == "true":
+                self.logger.info("found a client that requires bind")
+                need_bind = True
+                break
+
+        if need_bind:
+            self.logger.info("parsing bind")
+
+            try:
+                bind = yaml_parsed["bind"][0]
+            except KeyError:
+                self.logger.exception("bind section in the YAML file is missing")
+
+            bind_must_have = ["root_zone"]
+
+            for item in bind_must_have:
+                if item not in bind.keys():
+                    self.logger.error("%s is missing from the YAML.", item)
+
+            bindconf = BINDConfig()
+
+            try:
+                bindconf.root_zone = str(bind["root_zone"])
+            except ValueError:
+                self.logger.exception("invalid root_zone")
+
+            self.bind = bindconf

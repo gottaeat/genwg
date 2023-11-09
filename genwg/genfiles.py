@@ -118,17 +118,10 @@ class GenFiles:
 
                 svconf += "PostDown = pkill -15 udp2raw || true\n\n"
 
-                for client in self.clients:
-                    if client.tcp:
-                        server.last_ip += 1
-                        self._create_client(server, client)
-
-                        svconf += f"# {client.name}\n"
-                        svconf += "[Peer]\n"
-                        svconf += f"PublicKey = {client.pub}\n"
-                        svconf += f"AllowedIPs = {server.last_ip}/32\n\n"
-            else:
-                for client in self.clients:
+            for client in self.clients:
+                if server.proto == "tcp" and not client.tcp:
+                    pass
+                else:
                     server.last_ip += 1
                     self._create_client(server, client)
 

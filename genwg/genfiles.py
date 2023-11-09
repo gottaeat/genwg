@@ -18,7 +18,7 @@ class GenFiles:
     def _create_dirs(self):
         self.logger.info("creating directories")
 
-        for i in ["server", "client"]:
+        for i in ["genwg_dump"]:
             if os.path.exists(i):
                 self.logger.warning(" - collision found, removing")
 
@@ -26,6 +26,7 @@ class GenFiles:
                     shutil.rmtree(i)
                 except NotADirectoryError:
                     os.remove(i)
+
             os.mkdir(i)
 
     def _create_client(self, server, client):
@@ -88,7 +89,9 @@ class GenFiles:
             conf += "PersistentKeepalive = 25\n"
 
         with open(
-            f"./client/{client.name}-{server.name}.conf", "w", encoding="utf-8"
+            f"./genwg_dump/client/{client.name}-{server.name}.conf",
+            "w",
+            encoding="utf-8",
         ) as file:
             file.write(conf)
 
@@ -131,7 +134,9 @@ class GenFiles:
                     svconf += f"PublicKey = {client.pub}\n"
                     svconf += f"AllowedIPs = {server.last_ip}/32\n\n"
 
-            with open(f"./server/{server.name}.conf", "w", encoding="utf-8") as svfile:
+            with open(
+                f"./genwg_dump/server/{server.name}.conf", "w", encoding="utf-8"
+            ) as svfile:
                 svfile.write(svconf)
 
     def _save_yaml(self):
@@ -153,10 +158,7 @@ class GenFiles:
             yaml_dict["servers"].append(sv_dict)
 
         for client in self.clients:
-            cl_dict = {
-                "name": client.name,
-                "priv": client.priv
-            }
+            cl_dict = {"name": client.name, "priv": client.priv}
 
             if client.tcp:
                 cl_dict["tcp"] = client.tcp
@@ -171,19 +173,19 @@ class GenFiles:
                 {"secret": self.udp2raw.secret, "port": self.udp2raw.port}
             )
         except AttributeError:
-            del yaml_dict['udp2raw']
+            del yaml_dict["udp2raw"]
 
         try:
             yaml_dict["bind"].append({"root_zone": self.bind.root_zone})
         except AttributeError:
-            del yaml_dict['bind']
+            del yaml_dict["bind"]
 
         yaml_str = yaml.dump(yaml_dict, sort_keys=False)
 
         yaml_filename = f"{time.strftime('%Y%m%d_%H%M%S')}-genpw.yml"
         self.logger.info("saving current state as: %s", yaml_filename)
 
-        with open(yaml_filename, "w", encoding="utf-8") as yaml_file:
+        with open(f"./genwg_dump/{yaml_filename}", "w", encoding="utf-8") as yaml_file:
             yaml_file.write(yaml_str)
 
     def run(self):

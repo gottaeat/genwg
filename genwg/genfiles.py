@@ -1,4 +1,6 @@
+import ipaddress
 import os
+import re
 import shutil
 import time
 
@@ -10,10 +12,27 @@ class GenFiles:
     def __init__(self):
         self.logger = None
 
+        self.want_bind = None
+
         self.servers = None
         self.clients = None
         self.udp2raw = None
         self.bind = None
+
+    @staticmethod
+    # pylint: disable=invalid-name
+    def _get_host_bits(ip, prefix):
+        netmask = str(ipaddress.ip_network(f"{ip}/{prefix}", strict=False).netmask)
+
+        ip_split = list(map(int, str(ip).split(".")))
+        netmask_split = list(map(int, netmask.split(".")))
+
+        host_bits = [
+            ip_split & (255 - netmask_split)
+            for ip_split, netmask_split in zip(ip_split, netmask_split)
+        ]
+
+        return ".".join([str(bit) for bit in host_bits if bit != 0])
 
     def _create_dirs(self):
         self.logger.info("creating directories")
@@ -29,7 +48,12 @@ class GenFiles:
 
             os.mkdir(i)
 
-        for i in ["server", "client"]:
+        want_dirs = ["server", "client"]
+
+        if self.want_bind:
+            want_dirs.append("bind")
+
+        for i in want_dirs:
             os.mkdir(f"./genwg_dump/{i}")
 
     def _create_client(self, server, client):
@@ -98,10 +122,48 @@ class GenFiles:
         ) as file:
             file.write(conf)
 
+    # pylint: disable=too-many-locals,too-many-statements
     def _create_servers(self):
+        if self.want_bind:
+            named_conf = ""
+
         for server in self.servers:
             self.logger.info("creating server %s (%s)", server.name, server.proto)
 
+            # bind root zones for local domains of the wireguard interfaces
+            if self.want_bind:
+                zone_begin = "$TTL 5M\n"
+                zone_begin += (
+                    f"@ IN SOA {server.name}. root.{server.name}. ( 1 1W 1D 4W 1W )\n"
+                )
+                zone_begin += f"@ IN NS {server.name}.{server.name}.\n"
+
+                # /tmp/bind/zone.A
+                a_zone = zone_begin
+                a_zone += f"@ IN A {server.last_ip}\n"
+                a_zone += f"{server.name} IN A {server.last_ip}\n"
+
+                # /tmp/bind/zone.PTR
+                ptr_zone = zone_begin
+                ptr_zone += f"1 IN PTR {server.name}.{server.name}.\n"
+
+                # /tmp/bind/named.conf.local
+                ptr_zone_file_name = re.sub(r"\.in-addr\.arpa$", "", server.arpa_ptr)
+
+                a_path = f"{self.bind.tmp_dir}/zone.{server.name}"
+                ptr_path = f"{self.bind.tmp_dir}/zone.{ptr_zone_file_name}"
+
+                named_conf += f'zone "{server.name}" {{\n'
+                named_conf += "    type master;\n"
+                named_conf += f'    file "{a_path}";\n'
+                named_conf += "};\n"
+
+                named_conf += f'zone "{server.arpa_ptr}" {{\n'
+                named_conf += "    type master;\n"
+                named_conf += f'    file "{ptr_path}";\n'
+                named_conf += "};\n"
+
+            # wireguard server config
             svconf = f"# - server : {server.name}\n"
             svconf += f"# - private: {server.priv}\n"
             svconf += f"# - public : {server.pub}\n\n"
@@ -111,6 +173,7 @@ class GenFiles:
             svconf += f"ListenPort = {server.port}\n"
             svconf += f"MTU = {server.mtu}\n\n"
 
+            # tcp server handling
             if server.proto == "tcp":
                 svconf += f"PreUp = udp2raw -s -l {server.ip}:{self.udp2raw.port} "
                 svconf += f'-r 127.0.0.1:{server.port} -k "{self.udp2raw.secret}" '
@@ -118,22 +181,55 @@ class GenFiles:
 
                 svconf += "PostDown = pkill -15 udp2raw || true\n\n"
 
+            # wireguard client config
             for client in self.clients:
                 if server.proto == "tcp" and not client.tcp:
                     pass
                 else:
                     server.last_ip += 1
+
+                    if self.want_bind:
+                        # A and PTR records for clients
+                        ptr_ip = self._get_host_bits(server.last_ip, server.pfx)
+
+                        a_zone += f"{client.name} IN A {server.last_ip}\n"
+                        ptr_zone += f"{ptr_ip} IN PTR {client.name}.{server.name}.\n"
+
+                    # create and write client configs
                     self._create_client(server, client)
 
+                    # append client to server master config
                     svconf += f"# {client.name}\n"
                     svconf += "[Peer]\n"
                     svconf += f"PublicKey = {client.pub}\n"
                     svconf += f"AllowedIPs = {server.last_ip}/32\n\n"
 
+            # write server config
             with open(
                 f"./genwg_dump/server/{server.name}.conf", "w", encoding="utf-8"
             ) as svfile:
                 svfile.write(svconf)
+
+            if self.want_bind:
+                # write named.conf.local
+                with open(
+                    "./genwg_dump/bind/named.conf.local", "w", encoding="utf-8"
+                ) as named_conf_file:
+                    named_conf_file.write(named_conf)
+
+                # write a record zone
+                with open(
+                    f"./genwg_dump/bind/zone.{server.name}", "w", encoding="utf-8"
+                ) as a_zone_file:
+                    a_zone_file.write(a_zone)
+
+                # write ptr record zone
+                with open(
+                    f"./genwg_dump/bind/zone.{ptr_zone_file_name}",
+                    "w",
+                    encoding="utf-8",
+                ) as ptr_zone_file:
+                    ptr_zone_file.write(ptr_zone)
 
     def _save_yaml(self):
         self.logger.info("generating yaml")
@@ -172,8 +268,16 @@ class GenFiles:
             del yaml_dict["udp2raw"]
 
         try:
+            yaml_dict["bind"].append({"tmp_dir": self.bind.tmp_dir})
+        except AttributeError:
+            pass
+
+        try:
             yaml_dict["bind"].append({"root_zone": self.bind.root_zone})
         except AttributeError:
+            pass
+
+        if len(yaml_dict["bind"]) == 0:
             del yaml_dict["bind"]
 
         yaml_str = yaml.dump(yaml_dict, sort_keys=False)

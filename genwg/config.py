@@ -281,6 +281,7 @@ class ConfigYAML:
 
             bindconf = BINDConfig()
 
+            # tmp_dir
             if self.want_bind and "tmp_dir" not in bind.keys():
                 self.logger.error("tmp_dir is missing from the YAML.")
 
@@ -289,11 +290,12 @@ class ConfigYAML:
             except ValueError:
                 self.logger.exception("invalid tmp_dir")
 
+            # root_zone
             if client_needs_bind and "root_zone" not in bind.keys():
                 self.logger.error("root_zone is missing from the YAML.")
 
             try:
-                bindconf.tmp_dir = str(bind["root_zone"])
+                bindconf.root_zone = str(bind["root_zone"])
             except ValueError:
                 self.logger.exception("invalid root_zone")
 

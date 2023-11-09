@@ -47,7 +47,8 @@ udp2raw:
       port: 6971
 
 bind:
-    - root_zone: /var/named/zone.root-nov6
+    - tmp_dir: /tmp/bind
+      root_zone: /var/named/zone.root-nov6
 
 yaml fields
 -----------
@@ -78,8 +79,12 @@ yaml fields
  - port  : (required) udp2raw port.
 
 > bind:
+ - tmp_dir  : (optional) set the temporary directory to store the config file
+                         to be included in named.conf if user requested --bind
+                         to create zone files w/ A and PTR records for the
+                         respective server and its clients.
  - root_zone: (optional) a root zone file to be default back to when the
                          interface is brought down.
 
 note: udp2raw and bind fields become required if client is set to use tcp or
-      bind.
+      bind. if --bind is requested in cli, tmp_dir is also required.

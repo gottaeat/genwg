@@ -29,6 +29,9 @@ class GenFiles:
 
             os.mkdir(i)
 
+        for i in ["server", "client"]:
+            os.mkdir(f"./genwg_dump/{i}")
+
     def _create_client(self, server, client):
         self.logger.info(
             " - client: %s (tcp: %s, bind: %s)", client.name, client.tcp, client.bind

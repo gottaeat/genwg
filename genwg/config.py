@@ -1,5 +1,6 @@
 import ipaddress
 import os
+import re
 import secrets
 import subprocess
 
@@ -105,6 +106,16 @@ class ConfigYAML:
             svconf = ServerConfig()
             svconf.name = str(server["name"])
 
+            iface_regex = re.compile(r'^[a-zA-Z0-9_.]{1,15}$')
+
+            if not iface_regex.match(svconf.name):
+                self.logger.error("%s is not a valid interface name.", svconf.name)
+
+            zone_regex = re.compile(r'^[a-zA-Z0-9.-]{1,255}$')
+
+            if not zone_regex.match(svconf.name):
+                self.logger.error("%s is not a valid zone owner name.", svconf.name)
+
             svconf.proto = str(server["proto"]).lower()
             if svconf.proto not in ["tcp", "udp"]:
                 self.logger.error("proto must be either tcp or udp")
@@ -171,6 +182,11 @@ class ConfigYAML:
 
             clconf = ClientConfig()
             clconf.name = str(client["name"])
+
+            subd_regex = re.compile(r'^[a-zA-Z0-9-]{1,63}$')
+
+            if not subd_regex.match(clconf.name):
+                self.logger.error("%s cannot be used as a subdomain.", clconf.name)
 
             try:
                 clconf.priv = str(client["priv"])

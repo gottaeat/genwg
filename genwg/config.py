@@ -41,12 +41,14 @@ class UDP2RAWConfig:
 
 class BINDConfig:
     def __init__(self):
+        self.tmp_dir = None
         self.root_zone = None
 
 
 class ConfigYAML:
     def __init__(self, config_file):
         self.config_file = config_file
+        self.want_bind = None
 
         self.logger = None
 
@@ -106,10 +108,10 @@ class ConfigYAML:
             svconf = ServerConfig()
             svconf.name = str(server["name"])
 
-            if len(svconf.name) >= 16 or ' ' in svconf.name or '/' in svconf.name:
+            if len(svconf.name) >= 16 or " " in svconf.name or "/" in svconf.name:
                 self.logger.error("%s is not a valid interface name.", svconf.name)
 
-            zone_regex = re.compile(r'^[a-zA-Z0-9.-]{1,255}$')
+            zone_regex = re.compile(r"^[a-zA-Z0-9.-]{1,255}$")
 
             if not zone_regex.match(svconf.name):
                 self.logger.error("%s is not a valid zone owner name.", svconf.name)
@@ -181,7 +183,7 @@ class ConfigYAML:
             clconf = ClientConfig()
             clconf.name = str(client["name"])
 
-            subd_regex = re.compile(r'^[a-zA-Z0-9-]{1,63}$')
+            subd_regex = re.compile(r"^[a-zA-Z0-9-]{1,63}$")
 
             if not subd_regex.match(clconf.name):
                 self.logger.error("%s cannot be used as a subdomain.", clconf.name)
@@ -258,14 +260,20 @@ class ConfigYAML:
 
             self.udp2raw = u2rconf
 
-        need_bind = False
+        # bind
+        if self.want_bind:
+            self.logger.info("bind zone file generation requested")
+
+        print(self.want_bind)
+
+        client_needs_bind = False
         for client in self.clients:
             if client.bind:
                 self.logger.info("found a client that requires bind")
-                need_bind = True
+                client_needs_bind = True
                 break
 
-        if need_bind:
+        if self.want_bind or client_needs_bind:
             self.logger.info("parsing bind")
 
             try:
@@ -273,16 +281,23 @@ class ConfigYAML:
             except KeyError:
                 self.logger.exception("bind section in the YAML file is missing")
 
-            bind_must_have = ["root_zone"]
-
-            for item in bind_must_have:
-                if item not in bind.keys():
-                    self.logger.error("%s is missing from the YAML.", item)
-
             bindconf = BINDConfig()
 
+            if self.want_bind and "tmp_dir" not in bind.keys():
+                self.logger.error("tmp_dir is missing from the YAML.")
+
             try:
-                bindconf.root_zone = str(bind["root_zone"])
+                bindconf.tmp_dir = str(bind["tmp_dir"])
+            except ValueError:
+                self.logger.exception("invalid tmp_dir")
+
+            print(bind.keys())
+
+            if client_needs_bind and "root_zone" not in bind.keys():
+                self.logger.error("root_zone is missing from the YAML.")
+
+            try:
+                bindconf.tmp_dir = str(bind["root_zone"])
             except ValueError:
                 self.logger.exception("invalid root_zone")
 

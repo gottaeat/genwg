@@ -29,6 +29,7 @@ class ServerConfig:
         self.port = None
         self.net = None
         self.pfx = None
+        self.arpa_ptr = None
         self.mtu = None
         self.last_ip = None
 
@@ -147,6 +148,10 @@ class ConfigYAML:
 
             svconf.net = yaml_net.network_address
             svconf.pfx = yaml_net.prefixlen
+
+            svconf.arpa_ptr = re.sub(
+                rf"^0/{svconf.pfx}\.", "", str(yaml_net.reverse_pointer)
+            )
 
             svconf.last_ip = svconf.net + 1
 

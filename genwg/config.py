@@ -264,8 +264,6 @@ class ConfigYAML:
         if self.want_bind:
             self.logger.info("bind zone file generation requested")
 
-        print(self.want_bind)
-
         client_needs_bind = False
         for client in self.clients:
             if client.bind:
@@ -290,8 +288,6 @@ class ConfigYAML:
                 bindconf.tmp_dir = str(bind["tmp_dir"])
             except ValueError:
                 self.logger.exception("invalid tmp_dir")
-
-            print(bind.keys())
 
             if client_needs_bind and "root_zone" not in bind.keys():
                 self.logger.error("root_zone is missing from the YAML.")

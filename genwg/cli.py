@@ -12,6 +12,7 @@ from .genfiles import GenFiles
 class CLI:
     def __init__(self):
         self.config_file = None
+        self.want_bind = None
         self.debug = None
 
         self.logger = None
@@ -19,14 +20,19 @@ class CLI:
     def _gen_args(self):
         parser_desc = "WireGuard client and server configuartion generator."
         parser_c_help = "Configuration YAML file."
+        parser_bind_help = "Generate BIND zones with A and PTR records for the clients."
         parser_d_help = "Enable debugging."
 
         parser = argparse.ArgumentParser(description=parser_desc)
         parser.add_argument("-c", type=str, required=True, help=parser_c_help)
+        parser.add_argument(
+            "--bind", dest="want_bind", action="store_true", help=parser_bind_help
+        )
         parser.add_argument("-d", dest="debug", action="store_true", help=parser_d_help)
         args = parser.parse_args()
 
         self.config_file = args.c
+        self.want_bind = args.want_bind
         self.debug = args.debug
 
     def run(self):
@@ -46,6 +52,7 @@ class CLI:
         self._gen_args()
 
         config = ConfigYAML(self.config_file)
+        config.want_bind = self.want_bind
         config.logger = self.logger
         config.parse_yaml()
 

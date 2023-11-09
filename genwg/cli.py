@@ -57,6 +57,7 @@ class CLI:
         config.parse_yaml()
 
         genfiles = GenFiles()
+        genfiles.want_bind = self.want_bind
         genfiles.clients = config.clients
         genfiles.servers = config.servers
         genfiles.udp2raw = config.udp2raw

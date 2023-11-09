@@ -106,9 +106,7 @@ class ConfigYAML:
             svconf = ServerConfig()
             svconf.name = str(server["name"])
 
-            iface_regex = re.compile(r'^[a-zA-Z0-9_.]{1,15}$')
-
-            if not iface_regex.match(svconf.name):
+            if len(svconf.name) >= 16 or ' ' in svconf.name or '/' in svconf.name:
                 self.logger.error("%s is not a valid interface name.", svconf.name)
 
             zone_regex = re.compile(r'^[a-zA-Z0-9.-]{1,255}$')

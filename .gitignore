@@ -1,3 +1,2 @@
-server/*
-client/*
+genwg_dump/*
 *.yml

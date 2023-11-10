@@ -42,8 +42,9 @@ class UDP2RAWConfig:
 
 class BINDConfig:
     def __init__(self):
-        self.tmp_dir = None
-        self.root_zone = None
+        self.hostname = None
+        self.named_conf_path = None
+        self.root_zone_file = None
 
 
 class ConfigYAML:
@@ -286,22 +287,39 @@ class ConfigYAML:
 
             bindconf = BINDConfig()
 
-            # tmp_dir
-            if self.want_bind and "tmp_dir" not in bind.keys():
-                self.logger.error("tmp_dir is missing from the YAML.")
+            # want_bind handling
+            bind_must_have = ["hostname", "named_conf_path"]
+
+            for item in bind_must_have:
+                if item not in bind.keys():
+                    self.logger.error("%s is missing from the YAML.", item)
 
             try:
-                bindconf.tmp_dir = str(bind["tmp_dir"])
+                bindconf.hostname = str(bind["hostname"])
             except ValueError:
-                self.logger.exception("invalid tmp_dir")
+                self.logger.exception("invalid hostname")
+
+            if bindconf.hostname == "None":
+                self.logger.error("invalid hostname")
+
+            try:
+                bindconf.named_conf_path = str(bind["named_conf_path"])
+            except ValueError:
+                self.logger.exception("invalid named_conf_path")
+
+            if bindconf.named_conf_path == "None":
+                self.logger.error("invalid named_conf_path")
 
             # root_zone
-            if client_needs_bind and "root_zone" not in bind.keys():
-                self.logger.error("root_zone is missing from the YAML.")
+            if client_needs_bind and "root_zone_file" not in bind.keys():
+                self.logger.error("root_zone_file is missing from the YAML.")
 
             try:
-                bindconf.root_zone = str(bind["root_zone"])
+                bindconf.root_zone_file = str(bind["root_zone_file"])
             except ValueError:
-                self.logger.exception("invalid root_zone")
+                self.logger.exception("invalid root_zone_file")
+
+            if bindconf.root_zone_file == "None":
+                self.logger.error("invalid root_zone_file")
 
             self.bind = bindconf

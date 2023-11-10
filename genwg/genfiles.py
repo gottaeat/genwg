@@ -46,15 +46,23 @@ class GenFiles:
                 except NotADirectoryError:
                     os.remove(i)
 
-            os.mkdir(i)
+            try:
+                os.mkdir(i)
+            # pylint: disable=bare-except
+            except:
+                self.logger.exception("_create_dirs() failed")
 
         want_dirs = ["server", "client"]
 
         if self.want_bind:
-            want_dirs.append("bind")
+            want_dirs.append("bind/zone/genwg")
 
-        for i in want_dirs:
-            os.mkdir(f"./genwg_dump/{i}")
+        try:
+            for i in want_dirs:
+                os.makedirs(f"./genwg_dump/{i}", exist_ok=True)
+        # pylint: disable=bare-except
+        except:
+            self.logger.exception("_create_dirs() failed")
 
     def _create_client(self, server, client):
         self.logger.info(
@@ -80,7 +88,7 @@ class GenFiles:
 
             conf += 'PreDown = mkdir -p "/tmp/bind"\n'
             conf += 'PreDown = echo "zone \\".\\" { type hint; file '
-            conf += f'\\"{self.bind.root_zone}\\"; }};" '
+            conf += f'\\"{self.bind.root_zone_file}\\"; }};" '
             conf += '> "/tmp/bind/named.conf.local"\n'
             conf += "PreDown = rndc reload\n"
         else:
@@ -136,22 +144,23 @@ class GenFiles:
                 zone_begin += (
                     f"@ IN SOA {server.name}. root.{server.name}. ( 1 1W 1D 4W 1W )\n"
                 )
-                zone_begin += f"@ IN NS {server.name}.{server.name}.\n"
+                zone_begin += f"@ IN NS {self.bind.hostname}.{server.name}.\n"
 
-                # /tmp/bind/zone.A
+                # zone_path/zone.A
                 a_zone = zone_begin
-                a_zone += f"@ IN A {server.last_ip}\n"
-                a_zone += f"{server.name} IN A {server.last_ip}\n"
+                a_zone += f"{self.bind.hostname} IN A {server.last_ip}\n"
 
-                # /tmp/bind/zone.PTR
+                # zone_path/zone.PTR
                 ptr_zone = zone_begin
-                ptr_zone += f"1 IN PTR {server.name}.{server.name}.\n"
+                ptr_zone += f"1 IN PTR {self.bind.hostname}.{server.name}.\n"
 
-                # /tmp/bind/named.conf.local
+                # named_conf_path/zone_path/genwg.conf
                 ptr_zone_file_name = re.sub(r"\.in-addr\.arpa$", "", server.arpa_ptr)
 
-                a_path = f"{self.bind.tmp_dir}/zone.{server.name}"
-                ptr_path = f"{self.bind.tmp_dir}/zone.{ptr_zone_file_name}"
+                a_path = f"{self.bind.named_conf_path}/zone/genwg/{server.name}"
+                ptr_path = (
+                    f"{self.bind.named_conf_path}/zone/genwg/{ptr_zone_file_name}"
+                )
 
                 named_conf += f'zone "{server.name}" {{\n'
                 named_conf += "    type master;\n"
@@ -211,21 +220,21 @@ class GenFiles:
                 svfile.write(svconf)
 
             if self.want_bind:
-                # write named.conf.local
+                # write genwg.conf
                 with open(
-                    "./genwg_dump/bind/named.conf.local", "w", encoding="utf-8"
+                    "./genwg_dump/bind/genwg.conf", "w", encoding="utf-8"
                 ) as named_conf_file:
                     named_conf_file.write(named_conf)
 
                 # write a record zone
                 with open(
-                    f"./genwg_dump/bind/zone.{server.name}", "w", encoding="utf-8"
+                    f"./genwg_dump/bind/zone/genwg/{server.name}", "w", encoding="utf-8"
                 ) as a_zone_file:
                     a_zone_file.write(a_zone)
 
                 # write ptr record zone
                 with open(
-                    f"./genwg_dump/bind/zone.{ptr_zone_file_name}",
+                    f"./genwg_dump/bind/zone/genwg/{ptr_zone_file_name}",
                     "w",
                     encoding="utf-8",
                 ) as ptr_zone_file:
@@ -268,12 +277,17 @@ class GenFiles:
             del yaml_dict["udp2raw"]
 
         try:
-            yaml_dict["bind"].append({"tmp_dir": self.bind.tmp_dir})
+            yaml_dict["bind"].append({"hostname": self.bind.hostname})
         except AttributeError:
             pass
 
         try:
-            yaml_dict["bind"].append({"root_zone": self.bind.root_zone})
+            yaml_dict["bind"].append({"named_conf_path": self.bind.named_conf_path})
+        except AttributeError:
+            pass
+
+        try:
+            yaml_dict["bind"].append({"root_zone_file": self.bind.root_zone_file})
         except AttributeError:
             pass
 

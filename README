@@ -47,8 +47,10 @@ udp2raw:
       port: 6971
 
 bind:
-    - tmp_dir: /tmp/bind
-      root_zone: /var/named/zone.root-nov6
+    - hostname: myvps
+      named_conf_path: /etc/bind
+      root_zone_file: /var/named/zone/root-nov6
+
 
 yaml fields
 -----------
@@ -78,13 +80,16 @@ yaml fields
  - secret: (optional) udp2raw secret, will be generated if not specified.
  - port  : (required) udp2raw port.
 
-> bind:
- - tmp_dir  : (optional) set the temporary directory to store the config file
-                         to be included in named.conf if user requested --bind
-                         to create zone files w/ A and PTR records for the
-                         respective server and its clients.
- - root_zone: (optional) a root zone file to be default back to when the
-                         interface is brought down.
+note: if a client requests tcp functionality udp2raw becomes required.
 
-note: udp2raw and bind fields become required if client is set to use tcp or
-      bind. if --bind is requested in cli, tmp_dir is also required.
+> bind:
+ - hostname       : (optional) define the hostname of the box running named for
+                               A and PTR zone files to work.
+ - named_conf_path: (optional) directory holding the zone files for localhost
+                               or the named.conf.
+ - root_zone_file : (optional) a root zone file to be default back to when the
+                               interface is brought down.
+
+note: if a client requests bind functionality, root_zone_file becomes required.
+      if --bind is requested in cli, hostname and root_zone_file must be
+      supplied as well.

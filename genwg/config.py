@@ -81,7 +81,8 @@ class ConfigYAML:
 
     # pylint: disable=too-many-locals,too-many-branches,too-many-statements
     def parse_yaml(self):
-        self.logger.info("parsing configuration")
+        # yaml->dict
+        self.logger.info("loading yaml")
 
         if os.path.isfile(self.config_file):
             try:
@@ -93,6 +94,7 @@ class ConfigYAML:
         else:
             self.logger.error("%s is not a file", self.config_file)
 
+        # ServerConfig()
         self.logger.info("parsing servers")
 
         try:
@@ -105,23 +107,36 @@ class ConfigYAML:
         for server in servers:
             for item in server_must_have:
                 if item not in server.keys():
-                    self.logger.error("%s is missing from the YAML.", item)
+                    self.logger.error("%s is missing from the YAML", item)
+                if not server[item]:
+                    self.logger.error("%s cannot be blank", item)
 
             svconf = ServerConfig()
-            svconf.name = str(server["name"])
+
+            # server.name
+            try:
+                svconf.name = str(server["name"])
+            except ValueError:
+                self.logger.exception("invalid server name")
 
             if len(svconf.name) >= 16 or " " in svconf.name or "/" in svconf.name:
-                self.logger.error("%s is not a valid interface name.", svconf.name)
+                self.logger.error("%s is not a valid interface name", svconf.name)
 
             zone_regex = re.compile(r"^[a-zA-Z0-9.-]{1,255}$")
 
             if not zone_regex.match(svconf.name):
-                self.logger.error("%s is not a valid zone owner name.", svconf.name)
+                self.logger.error("%s is not a valid zone owner name", svconf.name)
 
-            svconf.proto = str(server["proto"]).lower()
+            # server.proto
+            try:
+                svconf.proto = str(server["proto"]).lower()
+            except ValueError:
+                self.logger.exception("invalid proto")
+
             if svconf.proto not in ["tcp", "udp"]:
                 self.logger.error("proto must be either tcp or udp")
 
+            # server.priv
             try:
                 svconf.priv = str(server["priv"])
             except KeyError:
@@ -130,35 +145,44 @@ class ConfigYAML:
             if svconf.priv == "None":
                 svconf.priv = self.gen_wg_priv()
 
+            # server.pub
             svconf.pub = self.gen_wg_pub(svconf.priv)
 
+            # server.ip
             try:
                 svconf.ip = ipaddress.ip_address(server["ip"])
             except ValueError:
                 self.logger.exception("invalid ip address")
 
+            # server.port
             try:
                 svconf.port = int(server["port"])
             except ValueError:
                 self.logger.exception("invalid port")
 
+            # server.net
             try:
                 yaml_net = ipaddress.ip_network(server["net"])
             except ValueError:
                 self.logger.exception("invalid network")
 
             svconf.net = yaml_net.network_address
+
+            # server.pfx
             svconf.pfx = yaml_net.prefixlen
 
+            if svconf.pfx == 32:
+                self.logger.error("network cannot be a /32")
+
+            # server.arpa_ptr
             svconf.arpa_ptr = re.sub(
                 rf"^0/{svconf.pfx}\.", "", str(yaml_net.reverse_pointer)
             )
 
+            # server.last_ip
             svconf.last_ip = svconf.net + 1
 
-            if svconf.pfx == 32:
-                self.logger.exception("network cannot be a /32")
-
+            # server.mtu
             try:
                 svconf.mtu = int(server["mtu"])
             except ValueError:
@@ -174,6 +198,7 @@ class ConfigYAML:
 
         self.logger.info("parsing clients")
 
+        # ClientConfig()
         try:
             clients = yaml_parsed["clients"]
         except KeyError:
@@ -184,16 +209,24 @@ class ConfigYAML:
         for client in clients:
             for item in client_must_have:
                 if item not in client.keys():
-                    self.logger.error("%s is missing from the YAML.", item)
+                    self.logger.error("%s is missing from the YAML", item)
+                if not client[item]:
+                    self.logger.error("%s cannot be empty", item)
 
             clconf = ClientConfig()
-            clconf.name = str(client["name"])
+
+            # client.name
+            try:
+                clconf.name = str(client["name"])
+            except ValueError:
+                self.logger.exception("invalid client name")
 
             subd_regex = re.compile(r"^[a-zA-Z0-9-]{1,63}$")
 
             if not subd_regex.match(clconf.name):
-                self.logger.error("%s cannot be used as a subdomain.", clconf.name)
+                self.logger.error("%s cannot be used as a subdomain", clconf.name)
 
+            # client.priv
             try:
                 clconf.priv = str(client["priv"])
             except KeyError:
@@ -202,8 +235,10 @@ class ConfigYAML:
             if clconf.priv == "None":
                 clconf.priv = self.gen_wg_priv()
 
+            # client.pub
             clconf.pub = self.gen_wg_pub(clconf.priv)
 
+            # client.tcp
             try:
                 if type(client["tcp"]).__name__ != "bool":
                     self.logger.error("tcp must be a bool")
@@ -215,6 +250,7 @@ class ConfigYAML:
             except KeyError:
                 clconf.tcp = False
 
+            # client.bind
             try:
                 if type(client["bind"]).__name__ != "bool":
                     self.logger.error("bind must be a bool")
@@ -228,6 +264,7 @@ class ConfigYAML:
 
             self.clients.append(clconf)
 
+        # UDP2RAWConfig()
         need_udp2raw = False
         for server in self.servers:
             if server.proto == "tcp":
@@ -247,15 +284,19 @@ class ConfigYAML:
 
             for item in udp2raw_must_have:
                 if item not in udp2raw.keys():
-                    self.logger.error("%s is missing from the YAML.", item)
+                    self.logger.error("%s is missing from the YAML", item)
+                if not udp2raw[item]:
+                    self.logger.error("%s cannot be empty", item)
 
             u2rconf = UDP2RAWConfig()
 
+            # udp2raw.port
             try:
                 u2rconf.port = int(udp2raw["port"])
             except ValueError:
                 self.logger.exception("invalid udp2raw port")
 
+            # udp2raw.secret
             try:
                 u2rconf.secret = str(udp2raw["secret"])
             except KeyError:
@@ -266,7 +307,7 @@ class ConfigYAML:
 
             self.udp2raw = u2rconf
 
-        # bind
+        # BINDConfig()
         if self.want_bind:
             self.logger.info("bind zone file generation requested")
 
@@ -292,34 +333,33 @@ class ConfigYAML:
 
             for item in bind_must_have:
                 if item not in bind.keys():
-                    self.logger.error("%s is missing from the YAML.", item)
+                    self.logger.error("%s is missing from the YAML", item)
+                if not bind[item]:
+                    self.logger.error("%s cannot be empty", item)
 
+            # bind.hostname
             try:
                 bindconf.hostname = str(bind["hostname"])
             except ValueError:
                 self.logger.exception("invalid hostname")
 
-            if bindconf.hostname == "None":
-                self.logger.error("invalid hostname")
-
+            # bind.named_conf_path
             try:
                 bindconf.named_conf_path = str(bind["named_conf_path"])
             except ValueError:
                 self.logger.exception("invalid named_conf_path")
 
-            if bindconf.named_conf_path == "None":
-                self.logger.error("invalid named_conf_path")
+            # client.bind handling
+            if client_needs_bind:
+                if "root_zone_file" not in bind.keys():
+                    self.logger.error("root_zone_file is missing from the YAML")
+                if not bind["root_zone_file"]:
+                    self.logger.error("root_zone_file cannot be empty")
 
-            # root_zone
-            if client_needs_bind and "root_zone_file" not in bind.keys():
-                self.logger.error("root_zone_file is missing from the YAML.")
-
+            # bind.root_zone_file
             try:
                 bindconf.root_zone_file = str(bind["root_zone_file"])
             except ValueError:
                 self.logger.exception("invalid root_zone_file")
-
-            if bindconf.root_zone_file == "None":
-                self.logger.error("invalid root_zone_file")
 
             self.bind = bindconf

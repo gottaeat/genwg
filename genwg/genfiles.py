@@ -245,6 +245,7 @@ class GenFiles:
 
         yaml_dict = {"servers": [], "clients": [], "udp2raw": [], "bind": []}
 
+        # server
         for server in self.servers:
             sv_dict = {
                 "name": server.name,
@@ -258,6 +259,7 @@ class GenFiles:
 
             yaml_dict["servers"].append(sv_dict)
 
+        # client
         for client in self.clients:
             cl_dict = {"name": client.name, "priv": client.priv}
 
@@ -269,6 +271,7 @@ class GenFiles:
 
             yaml_dict["clients"].append(cl_dict)
 
+        # udp2raw
         try:
             yaml_dict["udp2raw"].append(
                 {"secret": self.udp2raw.secret, "port": self.udp2raw.port}
@@ -276,24 +279,30 @@ class GenFiles:
         except AttributeError:
             del yaml_dict["udp2raw"]
 
+        # bind
+        sv_bind = {}
+
         try:
-            yaml_dict["bind"].append({"hostname": self.bind.hostname})
+            sv_bind["hostname"] = self.bind.hostname
         except AttributeError:
             pass
 
         try:
-            yaml_dict["bind"].append({"named_conf_path": self.bind.named_conf_path})
+            sv_bind["named_conf_path"] = self.bind.named_conf_path
         except AttributeError:
             pass
 
         try:
-            yaml_dict["bind"].append({"root_zone_file": self.bind.root_zone_file})
+            sv_bind["root_zone_file"] = self.bind.root_zone_file
         except AttributeError:
             pass
 
-        if len(yaml_dict["bind"]) == 0:
+        if len(sv_bind) == 0:
             del yaml_dict["bind"]
+        else:
+            yaml_dict["bind"].append(sv_bind)
 
+        # dump
         yaml_str = yaml.dump(yaml_dict, sort_keys=False)
 
         yaml_filename = f"{time.strftime('%Y%m%d_%H%M%S')}-genpw.yml"

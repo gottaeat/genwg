@@ -92,5 +92,5 @@ note: if a client requests tcp functionality udp2raw becomes required.
                                interface is brought down.
 
 note: if a client requests bind functionality, root_zone_file becomes required.
-      if --bind is requested in cli, hostname and root_zone_file must be
+      if --bind is requested in cli, hostname and named_conf_path must be
       supplied as well.

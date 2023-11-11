@@ -1,7 +1,8 @@
 genwg
 =====
-automatic wireguard client and server generation with wireguard over tcp
-support and system resolver awareness.
+wireguard client and server configuration generator that creates BIND local
+zones for servers with A and PTR records for the clients, supports wireguard
+over faketcp and has system resolver awareness.
 
 installation
 ------------

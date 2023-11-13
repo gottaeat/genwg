@@ -59,6 +59,8 @@ class ConfigYAML:
         self.udp2raw = None
         self.bind = None
 
+        self.yaml_parsed = None
+
     def gen_wg_priv(self):
         try:
             proc = subprocess.run(["wg", "genkey"], check=True, capture_output=True)
@@ -79,26 +81,13 @@ class ConfigYAML:
 
         return proc.stdout.decode("utf-8").rstrip("\n")
 
-    # pylint: disable=too-many-locals,too-many-branches,too-many-statements
-    def parse_yaml(self):
-        # yaml->dict
-        self.logger.info("loading yaml")
-
-        if os.path.isfile(self.config_file):
-            try:
-                with open(self.config_file, "r", encoding="utf-8") as yaml_file:
-                    yaml_parsed = yaml.load(yaml_file.read(), Loader=yaml.Loader)
-            # pylint: disable=broad-exception-caught
-            except Exception:
-                self.logger.exception("%s parsing has failed", self.config_file)
-        else:
-            self.logger.error("%s is not a file", self.config_file)
-
-        # ServerConfig()
+    # ServerConfig()
+    # pylint: disable=too-many-branches,too-many-statements
+    def _parse_servers(self):
         self.logger.info("parsing servers")
 
         try:
-            servers = yaml_parsed["servers"]
+            servers = self.yaml_parsed["servers"]
         except KeyError:
             self.logger.exception("server section in the YAML file is missing")
 
@@ -114,10 +103,7 @@ class ConfigYAML:
             svconf = ServerConfig()
 
             # server.name
-            try:
-                svconf.name = str(server["name"])
-            except ValueError:
-                self.logger.exception("invalid server name")
+            svconf.name = str(server["name"])
 
             if len(svconf.name) >= 16 or " " in svconf.name or "/" in svconf.name:
                 self.logger.error("%s is not a valid interface name", svconf.name)
@@ -128,10 +114,7 @@ class ConfigYAML:
                 self.logger.error("%s is not a valid zone owner name", svconf.name)
 
             # server.proto
-            try:
-                svconf.proto = str(server["proto"]).lower()
-            except ValueError:
-                self.logger.exception("invalid proto")
+            svconf.proto = str(server["proto"]).lower()
 
             if svconf.proto not in ["tcp", "udp"]:
                 self.logger.error("proto must be either tcp or udp")
@@ -159,6 +142,9 @@ class ConfigYAML:
                 svconf.port = int(server["port"])
             except ValueError:
                 self.logger.exception("invalid port")
+
+            if svconf.port <= 0 or svconf.port > 65535:
+                self.logger.error("%s is not a valid port number.", svconf.port)
 
             # server.net
             try:
@@ -196,11 +182,13 @@ class ConfigYAML:
 
             self.servers.append(svconf)
 
+    # ClientConfig()
+    # pylint: disable=too-many-branches
+    def _parse_clients(self):
         self.logger.info("parsing clients")
 
-        # ClientConfig()
         try:
-            clients = yaml_parsed["clients"]
+            clients = self.yaml_parsed["clients"]
         except KeyError:
             self.logger.exception("client section in the YAML file is missing")
 
@@ -216,10 +204,7 @@ class ConfigYAML:
             clconf = ClientConfig()
 
             # client.name
-            try:
-                clconf.name = str(client["name"])
-            except ValueError:
-                self.logger.exception("invalid client name")
+            clconf.name = str(client["name"])
 
             subd_regex = re.compile(r"^[a-zA-Z0-9-]{1,63}$")
 
@@ -264,7 +249,8 @@ class ConfigYAML:
 
             self.clients.append(clconf)
 
-        # UDP2RAWConfig()
+    # UDP2RAWConfig()
+    def _parse_udp2raw(self):
         need_udp2raw = False
         for server in self.servers:
             if server.proto == "tcp":
@@ -276,9 +262,11 @@ class ConfigYAML:
             self.logger.info("parsing udp2raw")
 
             try:
-                udp2raw = yaml_parsed["udp2raw"][0]
+                udp2raw = self.yaml_parsed["udp2raw"][0]
             except KeyError:
                 self.logger.exception("udp2raw section in the YAML file is missing")
+            except TypeError:
+                self.logger.exception("udp2raw section cannot be specified then left blank")
 
             udp2raw_must_have = ["port"]
 
@@ -296,6 +284,9 @@ class ConfigYAML:
             except ValueError:
                 self.logger.exception("invalid udp2raw port")
 
+            if u2rconf.port <= 0 or u2rconf.port > 65535:
+                self.logger.error("%s is not a valid port number.", u2rconf.port)
+
             # udp2raw.secret
             try:
                 u2rconf.secret = str(udp2raw["secret"])
@@ -307,7 +298,8 @@ class ConfigYAML:
 
             self.udp2raw = u2rconf
 
-        # BINDConfig()
+    # BINDConfig()
+    def _parse_bind(self):
         if self.want_bind:
             self.logger.info("bind zone file generation requested")
 
@@ -322,9 +314,11 @@ class ConfigYAML:
             self.logger.info("parsing bind")
 
             try:
-                bind = yaml_parsed["bind"][0]
+                bind = self.yaml_parsed["bind"][0]
             except KeyError:
                 self.logger.exception("bind section in the YAML file is missing")
+            except TypeError:
+                self.logger.exception("bind section cannot be specified then left blank")
 
             bindconf = BINDConfig()
 
@@ -338,16 +332,10 @@ class ConfigYAML:
                     self.logger.error("%s cannot be empty", item)
 
             # bind.hostname
-            try:
-                bindconf.hostname = str(bind["hostname"])
-            except ValueError:
-                self.logger.exception("invalid hostname")
+            bindconf.hostname = str(bind["hostname"])
 
             # bind.named_conf_path
-            try:
-                bindconf.named_conf_path = str(bind["named_conf_path"])
-            except ValueError:
-                self.logger.exception("invalid named_conf_path")
+            bindconf.named_conf_path = str(bind["named_conf_path"])
 
             # client.bind handling
             if client_needs_bind:
@@ -357,9 +345,25 @@ class ConfigYAML:
                     self.logger.error("root_zone_file cannot be empty")
 
             # bind.root_zone_file
-            try:
-                bindconf.root_zone_file = str(bind["root_zone_file"])
-            except ValueError:
-                self.logger.exception("invalid root_zone_file")
+            bindconf.root_zone_file = str(bind["root_zone_file"])
 
             self.bind = bindconf
+
+    def parse_yaml(self):
+        # yaml->dict
+        self.logger.info("loading yaml")
+
+        if os.path.isfile(self.config_file):
+            try:
+                with open(self.config_file, "r", encoding="utf-8") as yaml_file:
+                    self.yaml_parsed = yaml.load(yaml_file.read(), Loader=yaml.Loader)
+            # pylint: disable=bare-except
+            except:
+                self.logger.exception("%s parsing has failed", self.config_file)
+        else:
+            self.logger.error("%s is not a file", self.config_file)
+
+        self._parse_servers()
+        self._parse_clients()
+        self._parse_udp2raw()
+        self._parse_bind()

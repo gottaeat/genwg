@@ -64,9 +64,14 @@ class GenFiles:
         except:
             self.logger.exception("_create_dirs() failed")
 
+    # pylint: disable=too-many-statements
     def _create_client(self, server, client):
         self.logger.info(
-            " - client: %s (tcp: %s, bind: %s)", client.name, client.tcp, client.bind
+            " - client: %s (tcp: %s, bind: %s, android: %s)",
+            client.name,
+            client.tcp,
+            client.bind,
+            client.android,
         )
 
         conf = f"# - server : {server.name}\n"
@@ -95,6 +100,9 @@ class GenFiles:
             conf += f"DNS = {server.net + 1}\n"
 
         if server.proto == "tcp" and client.tcp:
+            if client.android:
+                conf += "PreUp = ip rule add from all lookup main pref 1\n"
+
             conf += f"PreUp = ip route add {server.ip} via `ip route list match "
             conf += "0 table all scope global | awk '{print $3}'` dev `ip route "
             conf += "list match 0 table all scope global | awk '{print $5}'`\n"
@@ -108,6 +116,9 @@ class GenFiles:
             conf += "list match 0 table all scope global | awk '{print $5}'`\n"
 
             conf += "PostDown = pkill -15 udp2raw || true\n"
+
+            if client.android:
+                conf += "PostDown = ip rule del from all lookup main pref 1\n"
 
         conf += "\n[Peer]\n"
         conf += f"PublicKey = {server.pub}\n"

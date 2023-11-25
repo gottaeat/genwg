@@ -27,6 +27,8 @@ class ClientConfig:
 
         # android
         self.android = None
+        self.wgquick_path = None
+        self.udp2raw_path = None
 
 
 # pylint: disable=too-many-instance-attributes,too-few-public-methods
@@ -332,7 +334,21 @@ class ConfigYAML:
             except KeyError:
                 clconf.android = False
 
-            # colission
+            if clconf.android:
+                android_must_have = ["wgquick_path", "udp2raw_path"]
+                for item in android_must_have:
+                    if item not in client.keys():
+                        self.logger.error("%s is missing from the YAML", item)
+                    if not client[item]:
+                        self.logger.error("%s cannot be blank", item)
+
+                # client.wgquick_path
+                clconf.wgquick_path = str(client["wgquick_path"])
+
+                # client.udp2raw_path
+                clconf.udp2raw_path = str(client["udp2raw_path"])
+
+            # collision
             if clconf.android and clconf.bind:
                 self.logger.error("android clients do not support bind")
 

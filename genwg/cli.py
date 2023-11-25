@@ -60,8 +60,6 @@ class CLI:
         genfiles.want_bind = self.want_bind
         genfiles.clients = config.clients
         genfiles.servers = config.servers
-        genfiles.udp2raw = config.udp2raw
-        genfiles.bind = config.bind
 
         genfiles.logger = self.logger
 

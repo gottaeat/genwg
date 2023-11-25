@@ -10,14 +10,10 @@ import yaml
 # pylint: disable=too-few-public-methods
 class GenFiles:
     def __init__(self):
-        self.logger = None
-
         self.want_bind = None
-
+        self.logger = None
         self.servers = None
         self.clients = None
-        self.udp2raw = None
-        self.bind = None
 
     @staticmethod
     # pylint: disable=invalid-name

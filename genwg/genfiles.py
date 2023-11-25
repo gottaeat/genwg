@@ -82,10 +82,10 @@ class GenFiles:
         conf += "[Interface]\n"
         conf += f"Address = {server.last_ip}/32\n"
         conf += f"PrivateKey = {client.priv}\n"
-        conf += f"MTU = {server.mtu}\n\n"
+        conf += f"MTU = {server.mtu}\n"
 
         if client.bind:
-            conf += 'PostUp = mkdir -p "/tmp/bind"\n'
+            conf += '\nPostUp = mkdir -p "/tmp/bind"\n'
             conf += 'PostUp = echo "zone \\".\\" { type forward; forwarders '
             conf += f'{{ {server.net + 1}; }}; }};" '
             conf += '> "/tmp/bind/named.conf.local"\n'
@@ -99,10 +99,7 @@ class GenFiles:
         else:
             conf += f"DNS = {server.net + 1}\n"
 
-        if server.proto == "tcp" and client.tcp:
-            if client.android:
-                conf += "PreUp = ip rule add from all lookup main pref 1\n"
-
+        if server.proto == "tcp" and client.tcp and not client.android:
             conf += f"PreUp = ip route add {server.ip} via `ip route list match "
             conf += "0 table all scope global | awk '{print $3}'` dev `ip route "
             conf += "list match 0 table all scope global | awk '{print $5}'`\n"
@@ -116,9 +113,6 @@ class GenFiles:
             conf += "list match 0 table all scope global | awk '{print $5}'`\n"
 
             conf += "PostDown = pkill -15 udp2raw || true\n"
-
-            if client.android:
-                conf += "PostDown = ip rule del from all lookup main pref 1\n"
 
         conf += "\n[Peer]\n"
         conf += f"PublicKey = {server.pub}\n"

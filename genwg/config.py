@@ -7,45 +7,57 @@ import subprocess
 import yaml
 
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-instance-attributes,too-few-public-methods
 class ClientConfig:
     def __init__(self):
+        # required
         self.name = None
+
+        # wg keys
         self.priv = None
         self.pub = None
+
+        # faketcp
         self.tcp = None
+        self.udp2raw_log_path = None
+
+        # bind
         self.bind = None
+        self.root_zone_file = None
+
+        # android
         self.android = None
 
 
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes,too-few-public-methods
 class ServerConfig:
     def __init__(self):
-        self.proto = None
+        # required
         self.name = None
-        self.priv = None
-        self.pub = None
-        # pylint: disable=invalid-name
-        self.ip = None
-        self.port = None
-        self.net = None
-        self.pfx = None
-        self.arpa_ptr = None
-        self.mtu = None
-        self.last_ip = None
+        self.proto = None
 
-
-class UDP2RAWConfig:
-    def __init__(self):
-        self.secret = None
-        self.port = None
-
-
-class BINDConfig:
-    def __init__(self):
+        # required if --bind for zone SOA
         self.hostname = None
         self.named_conf_path = None
-        self.root_zone_file = None
+
+        # required
+        self.ip = None  # pylint: disable=invalid-name
+        self.port = None
+        self.net = None
+        self.mtu = None
+
+        # wg keys
+        self.priv = None
+        self.pub = None
+
+        # udp2raw, required if proto == tcp
+        self.udp2raw_secret = None
+        self.udp2raw_port = None
+
+        # derived from self.ip
+        self.pfx = None
+        self.arpa_ptr = None
+        self.last_ip = None
 
 
 class ConfigYAML:
@@ -57,8 +69,6 @@ class ConfigYAML:
 
         self.clients = []
         self.servers = []
-        self.udp2raw = None
-        self.bind = None
 
         self.yaml_parsed = None
 
@@ -94,6 +104,10 @@ class ConfigYAML:
 
         server_must_have = ["name", "proto", "ip", "port", "net", "mtu"]
 
+        if self.want_bind:
+            for i in "hostname", "named_conf_path":
+                server_must_have.append(i)
+
         for server in servers:
             for item in server_must_have:
                 if item not in server.keys():
@@ -120,17 +134,12 @@ class ConfigYAML:
             if svconf.proto not in ["tcp", "udp"]:
                 self.logger.error("proto must be either tcp or udp")
 
-            # server.priv
-            try:
-                svconf.priv = str(server["priv"])
-            except KeyError:
-                svconf.priv = self.gen_wg_priv()
-
-            if svconf.priv == "None":
-                svconf.priv = self.gen_wg_priv()
-
-            # server.pub
-            svconf.pub = self.gen_wg_pub(svconf.priv)
+            # --bind
+            if self.want_bind:
+                # server.hostname
+                svconf.hostname = str(server["hostname"])
+                # server.named_conf_path
+                svconf.named_conf_path = str(server["named_conf_path"])
 
             # server.ip
             try:
@@ -155,6 +164,59 @@ class ConfigYAML:
 
             svconf.net = yaml_net.network_address
 
+            # server.mtu
+            try:
+                svconf.mtu = int(server["mtu"])
+            except ValueError:
+                self.logger.exception("invalid mtu")
+
+            if svconf.proto == "udp" and svconf.mtu > 1460:
+                self.logger.error("mtu cannot be greater than 1460")
+
+            if svconf.proto == "tcp" and svconf.mtu > 1340:
+                self.logger.error("mtu cannot be greater than 1340 w/ udp2raw")
+
+            # server.priv
+            try:
+                svconf.priv = str(server["priv"])
+            except KeyError:
+                svconf.priv = self.gen_wg_priv()
+
+            if svconf.priv == "None":
+                svconf.priv = self.gen_wg_priv()
+
+            # udp2raw
+            if svconf.proto == "tcp":
+                udp2raw_must_have = ["udp2raw_port"]
+                for item in udp2raw_must_have:
+                    if item not in server.keys():
+                        self.logger.error("%s is missing from the YAML", item)
+                    if not server[item]:
+                        self.logger.error("%s cannot be blank", item)
+
+                # server.udp2raw_port
+                try:
+                    svconf.udp2raw_port = int(server["udp2raw_port"])
+                except ValueError:
+                    self.logger.exception("invalid udp2raw port")
+
+                if svconf.udp2raw_port <= 0 or svconf.udp2raw_port > 65535:
+                    self.logger.error(
+                        "%s is not a valid port number.", svconf.udp2raw_port
+                    )
+
+                # server.udp2raw_secret
+                try:
+                    svconf.udp2raw_secret = str(server["udp2raw_secret"])
+                except KeyError:
+                    svconf.udp2raw_secret = secrets.token_urlsafe(12)
+
+                if svconf.udp2raw_secret == "None":
+                    svconf.udp2raw_secret = secrets.token_urlsafe(12)
+
+            # server.pub
+            svconf.pub = self.gen_wg_pub(svconf.priv)
+
             # server.pfx
             svconf.pfx = yaml_net.prefixlen
 
@@ -168,18 +230,6 @@ class ConfigYAML:
 
             # server.last_ip
             svconf.last_ip = svconf.net + 1
-
-            # server.mtu
-            try:
-                svconf.mtu = int(server["mtu"])
-            except ValueError:
-                self.logger.exception("invalid mtu")
-
-            if svconf.proto == "udp" and svconf.mtu > 1460:
-                self.logger.error("mtu cannot be greater than 1460")
-
-            if svconf.proto == "tcp" and svconf.mtu > 1340:
-                self.logger.error("mtu cannot be greater than 1340 w/ udp2raw")
 
             self.servers.append(svconf)
 
@@ -236,6 +286,17 @@ class ConfigYAML:
             except KeyError:
                 clconf.tcp = False
 
+            if clconf.tcp:
+                tcp_must_have = ["udp2raw_log_path"]
+                for item in tcp_must_have:
+                    if item not in client.keys():
+                        self.logger.error("%s is missing from the YAML", item)
+                    if not client[item]:
+                        self.logger.error("%s cannot be blank", item)
+
+                # client.udp2raw_log_path
+                clconf.udp2raw_log_path = str(client["udp2raw_log_path"])
+
             # client.bind
             try:
                 if type(client["bind"]).__name__ != "bool":
@@ -247,6 +308,17 @@ class ConfigYAML:
                 clconf.bind = client["bind"]
             except KeyError:
                 clconf.bind = False
+
+            if clconf.bind:
+                bind_must_have = ["root_zone_file"]
+                for item in bind_must_have:
+                    if item not in client.keys():
+                        self.logger.error("%s is missing from the YAML", item)
+                    if not client[item]:
+                        self.logger.error("%s cannot be blank", item)
+
+                # client.root_zone_file
+                clconf.root_zone_file = str(client["root_zone_file"])
 
             # client.android
             try:
@@ -266,110 +338,6 @@ class ConfigYAML:
 
             self.clients.append(clconf)
 
-    # UDP2RAWConfig()
-    def _parse_udp2raw(self):
-        need_udp2raw = False
-        for server in self.servers:
-            if server.proto == "tcp":
-                self.logger.info("found a server that requires udp2raw")
-                need_udp2raw = True
-                break
-
-        if need_udp2raw:
-            self.logger.info("parsing udp2raw")
-
-            try:
-                udp2raw = self.yaml_parsed["udp2raw"][0]
-            except KeyError:
-                self.logger.exception("udp2raw section in the YAML file is missing")
-            except TypeError:
-                self.logger.exception(
-                    "udp2raw section cannot be specified then left blank"
-                )
-
-            udp2raw_must_have = ["port"]
-
-            for item in udp2raw_must_have:
-                if item not in udp2raw.keys():
-                    self.logger.error("%s is missing from the YAML", item)
-                if not udp2raw[item]:
-                    self.logger.error("%s cannot be empty", item)
-
-            u2rconf = UDP2RAWConfig()
-
-            # udp2raw.port
-            try:
-                u2rconf.port = int(udp2raw["port"])
-            except ValueError:
-                self.logger.exception("invalid udp2raw port")
-
-            if u2rconf.port <= 0 or u2rconf.port > 65535:
-                self.logger.error("%s is not a valid port number.", u2rconf.port)
-
-            # udp2raw.secret
-            try:
-                u2rconf.secret = str(udp2raw["secret"])
-            except KeyError:
-                u2rconf.secret = secrets.token_urlsafe(12)
-
-            if u2rconf.secret == "None":
-                u2rconf.secret = secrets.token_urlsafe(12)
-
-            self.udp2raw = u2rconf
-
-    # BINDConfig()
-    def _parse_bind(self):
-        if self.want_bind:
-            self.logger.info("bind zone file generation requested")
-
-        client_needs_bind = False
-        for client in self.clients:
-            if client.bind:
-                self.logger.info("found a client that requires bind")
-                client_needs_bind = True
-                break
-
-        if self.want_bind or client_needs_bind:
-            self.logger.info("parsing bind")
-
-            try:
-                bind = self.yaml_parsed["bind"][0]
-            except KeyError:
-                self.logger.exception("bind section in the YAML file is missing")
-            except TypeError:
-                self.logger.exception(
-                    "bind section cannot be specified then left blank"
-                )
-
-            bindconf = BINDConfig()
-
-            # want_bind handling
-            bind_must_have = ["hostname", "named_conf_path"]
-
-            for item in bind_must_have:
-                if item not in bind.keys():
-                    self.logger.error("%s is missing from the YAML", item)
-                if not bind[item]:
-                    self.logger.error("%s cannot be empty", item)
-
-            # bind.hostname
-            bindconf.hostname = str(bind["hostname"])
-
-            # bind.named_conf_path
-            bindconf.named_conf_path = str(bind["named_conf_path"])
-
-            # client.bind handling
-            if client_needs_bind:
-                if "root_zone_file" not in bind.keys():
-                    self.logger.error("root_zone_file is missing from the YAML")
-                if not bind["root_zone_file"]:
-                    self.logger.error("root_zone_file cannot be empty")
-
-            # bind.root_zone_file
-            bindconf.root_zone_file = str(bind["root_zone_file"])
-
-            self.bind = bindconf
-
     def parse_yaml(self):
         # yaml->dict
         self.logger.info("loading yaml")
@@ -386,5 +354,35 @@ class ConfigYAML:
 
         self._parse_servers()
         self._parse_clients()
-        self._parse_udp2raw()
-        self._parse_bind()
+
+        client_wants_tcp = False
+        server_is_tcp = False
+
+        for client in self.clients:
+            if client.tcp:
+                client_wants_tcp = True
+                break
+
+        for server in self.servers:
+            if server.proto == "tcp":
+                server_is_tcp = True
+                break
+
+        for client in self.clients:
+            if client.bind:
+                client_wants_bind = True
+                break
+
+        if client_wants_bind and not self.want_bind:
+            warnmsg = "a client wants bind but none of the servers are\n"
+            warnmsg += "configured to serve local zones."
+
+            for line in warnmsg.strip("\n"):
+                self.logger.warning(line)
+
+        if client_wants_tcp and not server_is_tcp:
+            errmsg = "a client requested faketcp support but none of the\n"
+            errmsg += "no server is configured to use tcp."
+
+            for line in errmsg.strip("\n"):
+                self.logger.error(line)

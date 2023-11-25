@@ -37,6 +37,7 @@ clients:
     - name: android-phone
       tcp: true
       bind: false
+      android: true
 
     - name: linux-desktop
       priv: MCfxMuwvNhlsmLjIxzIr9wJ2K75hc2+rufrnZuTqJ0I=

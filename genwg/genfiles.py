@@ -75,6 +75,12 @@ class GenFiles:
         conf += f"# - private: {client.priv}\n"
         conf += f"# - public : {client.pub}\n"
 
+        if client.android and client.tcp and server.proto == "tcp":
+            conf += f"\n# wgquick_path {client.wgquick_path}\n"
+            conf += f"# udp2raw_path {client.udp2raw_path}\n"
+            conf += f"# udp2raw_port {server.udp2raw_port}\n"
+            conf += f"# udp2raw_pass {server.udp2raw_secret}\n\n"
+
         conf += "[Interface]\n"
         conf += f"Address = {server.last_ip}/32\n"
         conf += f"PrivateKey = {client.priv}\n"
@@ -89,7 +95,7 @@ class GenFiles:
 
             conf += 'PreDown = mkdir -p "/tmp/bind"\n'
             conf += 'PreDown = echo "zone \\".\\" { type hint; file '
-            conf += f'\\"{self.bind.root_zone_file}\\"; }};" '
+            conf += f'\\"{client.root_zone_file}\\"; }};" '
             conf += '> "/tmp/bind/named.conf.local"\n'
             conf += "PreDown = rndc reload\n"
         else:
@@ -101,8 +107,8 @@ class GenFiles:
             conf += "list match 0 table all scope global | awk '{print $5}'`\n"
 
             conf += "PreUp = udp2raw -c -l 127.0.0.1:50001 -r "
-            conf += f'{server.ip}:{self.udp2raw.port} -k "{self.udp2raw.secret}" '
-            conf += "-a >/var/log/udp2raw.log 2>&1 &\n"
+            conf += f'{server.ip}:{server.udp2raw_port} -k "{server.udp2raw_secret}" '
+            conf += f"-a >{client.udp2raw_log_path} 2>&1 &\n"
 
             conf += f"PostDown = ip route del {server.ip} via `ip route list match "
             conf += "0 table all scope global | awk '{print $3}'` dev `ip route "
@@ -145,23 +151,21 @@ class GenFiles:
                 zone_begin += (
                     f"@ IN SOA {server.name}. root.{server.name}. ( 1 1W 1D 4W 1W )\n"
                 )
-                zone_begin += f"@ IN NS {self.bind.hostname}.{server.name}.\n"
+                zone_begin += f"@ IN NS {server.hostname}.{server.name}.\n"
 
                 # zone_path/zone.A
                 a_zone = zone_begin
-                a_zone += f"{self.bind.hostname} IN A {server.last_ip}\n"
+                a_zone += f"{server.hostname} IN A {server.last_ip}\n"
 
                 # zone_path/zone.PTR
                 ptr_zone = zone_begin
-                ptr_zone += f"1 IN PTR {self.bind.hostname}.{server.name}.\n"
+                ptr_zone += f"1 IN PTR {server.hostname}.{server.name}.\n"
 
                 # named_conf_path/zone_path/genwg.conf
                 ptr_zone_file_name = re.sub(r"\.in-addr\.arpa$", "", server.arpa_ptr)
 
-                a_path = f"{self.bind.named_conf_path}/zone/genwg/{server.name}"
-                ptr_path = (
-                    f"{self.bind.named_conf_path}/zone/genwg/{ptr_zone_file_name}"
-                )
+                a_path = f"{server.named_conf_path}/zone/genwg/{server.name}"
+                ptr_path = f"{server.named_conf_path}/zone/genwg/{ptr_zone_file_name}"
 
                 named_conf += f'zone "{server.name}" {{\n'
                 named_conf += "    type master;\n"
@@ -185,8 +189,8 @@ class GenFiles:
 
             # tcp server handling
             if server.proto == "tcp":
-                svconf += f"PreUp = udp2raw -s -l {server.ip}:{self.udp2raw.port} "
-                svconf += f'-r 127.0.0.1:{server.port} -k "{self.udp2raw.secret}" '
+                svconf += f"PreUp = udp2raw -s -l {server.ip}:{server.udp2raw_port} "
+                svconf += f'-r 127.0.0.1:{server.port} -k "{server.udp2raw_secret}" '
                 svconf += "-a >/var/log/udp2raw.log 2>&1 &\n"
 
                 svconf += "PostDown = pkill -15 udp2raw || true\n\n"
@@ -244,7 +248,7 @@ class GenFiles:
     def _save_yaml(self):
         self.logger.info("generating yaml")
 
-        yaml_dict = {"servers": [], "clients": [], "udp2raw": [], "bind": []}
+        yaml_dict = {"servers": [], "clients": []}
 
         # server
         for server in self.servers:
@@ -258,6 +262,20 @@ class GenFiles:
                 "mtu": server.mtu,
             }
 
+            try:
+                sv_dict["hostname"] = server.hostname
+            except AttributeError:
+                pass
+
+            try:
+                sv_dict["named_conf_path"] = server.named_conf_path
+            except AttributeError:
+                pass
+
+            if server.proto == "tcp":
+                sv_dict["udp2raw_secret"] = server.udp2raw_secret
+                sv_dict["udp2raw_port"] = server.udp2raw_port
+
             yaml_dict["servers"].append(sv_dict)
 
         # client
@@ -266,47 +284,23 @@ class GenFiles:
 
             if client.tcp:
                 cl_dict["tcp"] = client.tcp
+                cl_dict["udp2raw_log_path"] = client.udp2raw_log_path
 
             if client.bind:
                 cl_dict["bind"] = client.bind
+                cl_dict["root_zone_file"] = client.root_zone_file
+
+            if client.android:
+                cl_dict["android"] = client.android
+                cl_dict["wgquick_path"] = client.wgquick_path
+                cl_dict["udp2raw_path"] = client.udp2raw_path
 
             yaml_dict["clients"].append(cl_dict)
-
-        # udp2raw
-        try:
-            yaml_dict["udp2raw"].append(
-                {"secret": self.udp2raw.secret, "port": self.udp2raw.port}
-            )
-        except AttributeError:
-            del yaml_dict["udp2raw"]
-
-        # bind
-        sv_bind = {}
-
-        try:
-            sv_bind["hostname"] = self.bind.hostname
-        except AttributeError:
-            pass
-
-        try:
-            sv_bind["named_conf_path"] = self.bind.named_conf_path
-        except AttributeError:
-            pass
-
-        try:
-            sv_bind["root_zone_file"] = self.bind.root_zone_file
-        except AttributeError:
-            pass
-
-        if len(sv_bind) == 0:
-            del yaml_dict["bind"]
-        else:
-            yaml_dict["bind"].append(sv_bind)
 
         # dump
         yaml_str = yaml.dump(yaml_dict, sort_keys=False)
 
-        yaml_filename = f"{time.strftime('%Y%m%d_%H%M%S')}-genpw.yml"
+        yaml_filename = f"{time.strftime('%Y%m%d_%H%M%S')}-genwg.yml"
         self.logger.info("saving current state as: %s", yaml_filename)
 
         with open(f"./genwg_dump/{yaml_filename}", "w", encoding="utf-8") as yaml_file:

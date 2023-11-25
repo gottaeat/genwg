@@ -15,6 +15,7 @@ class ClientConfig:
         self.pub = None
         self.tcp = None
         self.bind = None
+        self.android = None
 
 
 # pylint: disable=too-many-instance-attributes
@@ -247,6 +248,22 @@ class ConfigYAML:
             except KeyError:
                 clconf.bind = False
 
+            # client.android
+            try:
+                if type(client["android"]).__name__ != "bool":
+                    self.logger.error("android must be a bool")
+            except KeyError:
+                pass
+
+            try:
+                clconf.android = client["android"]
+            except KeyError:
+                clconf.android = False
+
+            # colission
+            if clconf.android and clconf.bind:
+                self.logger.error("android clients do not support bind")
+
             self.clients.append(clconf)
 
     # UDP2RAWConfig()
@@ -266,7 +283,9 @@ class ConfigYAML:
             except KeyError:
                 self.logger.exception("udp2raw section in the YAML file is missing")
             except TypeError:
-                self.logger.exception("udp2raw section cannot be specified then left blank")
+                self.logger.exception(
+                    "udp2raw section cannot be specified then left blank"
+                )
 
             udp2raw_must_have = ["port"]
 
@@ -318,7 +337,9 @@ class ConfigYAML:
             except KeyError:
                 self.logger.exception("bind section in the YAML file is missing")
             except TypeError:
-                self.logger.exception("bind section cannot be specified then left blank")
+                self.logger.exception(
+                    "bind section cannot be specified then left blank"
+                )
 
             bindconf = BINDConfig()
 

@@ -5,7 +5,7 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "genwg"
 authors = [{name = "gottaeat", email = "mss@tutanota.de"}]
-readme = {file = "README", content-type = "text/plain"}
+readme = "README.md"
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"]
 dynamic = ["version", "description"]

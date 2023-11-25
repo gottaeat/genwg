@@ -76,10 +76,11 @@ class GenFiles:
         conf += f"# - public : {client.pub}\n"
 
         if client.android and client.tcp and server.proto == "tcp":
-            conf += f"\n# wgquick_path {client.wgquick_path}\n"
-            conf += f"# udp2raw_path {client.udp2raw_path}\n"
-            conf += f"# udp2raw_port {server.udp2raw_port}\n"
-            conf += f"# udp2raw_pass {server.udp2raw_secret}\n\n"
+            conf += f"\n# actual_endpoint {server.ip}\n"
+            conf += f"# wgquick_path    {client.wgquick_path}\n"
+            conf += f"# udp2raw_path    {client.udp2raw_path}\n"
+            conf += f"# udp2raw_port    {server.udp2raw_port}\n"
+            conf += f"# udp2raw_pass    {server.udp2raw_secret}\n\n"
 
         conf += "[Interface]\n"
         conf += f"Address = {server.last_ip}/32\n"

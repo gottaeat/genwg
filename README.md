@@ -52,7 +52,7 @@ genwg --help
 | wgquick_path | required if android && tcp | (str) path to the wg-quick binary |
 | upd2raw_path | required if android && tcp | (str) path to the udp2raw binary |
 | append_extra | optional | (bool) append the server's extra_address (if it exists) to the AllowedIPs for the client |
-| extra_allowed | optional | (str) extra srcip's to be accepted by the server from this client |
+| extra_allowed | optional | (str) extra srcip's to be accepted by the server from this client, will also be appended to the AllowedIPs for the server peer for all the other clients for them to have a route |
 ## example yaml
 ```yml
 servers:

@@ -124,7 +124,18 @@ class GenFiles:
             conf += "Endpoint = 127.0.0.1:50001\n"
         else:
             conf += f"Endpoint = {server.ip}:{server.port}\n"
-        conf += "AllowedIPs = 0.0.0.0/0\n"
+
+        conf += "AllowedIPs = 0.0.0.0/0"
+
+        if server.extra_address and client.append_extra:
+            addr_str = ""
+            # pylint: disable=consider-using-join
+            for address in server.extra_address:
+                addr_str += f",{address}"
+
+            conf += addr_str
+
+        conf += "\n"
 
         if server.proto == "tcp":
             conf += "PersistentKeepalive = 120\n"
@@ -138,7 +149,7 @@ class GenFiles:
         ) as file:
             file.write(conf)
 
-    # pylint: disable=too-many-locals,too-many-statements
+    # pylint: disable=too-many-locals,too-many-statements,too-many-branches
     def _create_servers(self):
         if self.want_bind:
             named_conf = ""
@@ -184,7 +195,19 @@ class GenFiles:
             svconf += f"# - public : {server.pub}\n\n"
             svconf += "[Interface]\n"
             svconf += f"PrivateKey = {server.priv}\n"
-            svconf += f"Address = {server.last_ip}/{server.pfx}\n"
+
+            svconf += f"Address = {server.last_ip}/{server.pfx}"
+
+            if server.extra_address:
+                addr_str = ""
+                # pylint: disable=consider-using-join
+                for address in server.extra_address:
+                    addr_str += f",{address}"
+
+                svconf += addr_str
+
+            svconf += "\n"
+
             svconf += f"ListenPort = {server.port}\n"
             svconf += f"MTU = {server.mtu}\n\n"
 
@@ -217,7 +240,18 @@ class GenFiles:
                     svconf += f"# {client.name}\n"
                     svconf += "[Peer]\n"
                     svconf += f"PublicKey = {client.pub}\n"
-                    svconf += f"AllowedIPs = {server.last_ip}/32\n\n"
+
+                    svconf += f"AllowedIPs = {server.last_ip}/32"
+
+                    if client.append_extra:
+                        addr_str = ""
+                        # pylint: disable=consider-using-join
+                        for address in client.extra_allowed:
+                            addr_str += f",{address}"
+
+                        svconf += addr_str
+
+                    svconf += "\n\n"
 
             # write server config
             with open(
@@ -277,6 +311,11 @@ class GenFiles:
                 sv_dict["udp2raw_secret"] = server.udp2raw_secret
                 sv_dict["udp2raw_port"] = server.udp2raw_port
 
+            try:
+                sv_dict["extra_address"] = server.extra_address
+            except AttributeError:
+                pass
+
             yaml_dict["servers"].append(sv_dict)
 
         # client
@@ -295,6 +334,16 @@ class GenFiles:
                 cl_dict["android"] = client.android
                 cl_dict["wgquick_path"] = client.wgquick_path
                 cl_dict["udp2raw_path"] = client.udp2raw_path
+
+            try:
+                cl_dict["append_extra"] = client.append_extra
+            except AttributeError:
+                pass
+
+            try:
+                cl_dict["extra_allowed"] = client.extra_allowed
+            except AttributeError:
+                pass
 
             yaml_dict["clients"].append(cl_dict)
 

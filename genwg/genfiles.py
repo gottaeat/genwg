@@ -133,7 +133,6 @@ class GenFiles:
 
         if len(self.extra_allowed_all) != 0:
             for client_name, client_extra in self.extra_allowed_all.items():
-                print(client_name, client.name)
                 if client_name != client.name:
                     for address in client_extra:
                         addr_str += f",{address}"

@@ -15,6 +15,8 @@ class GenFiles:
         self.servers = None
         self.clients = None
 
+        self.extra_allowed_all = {}
+
     @staticmethod
     # pylint: disable=invalid-name
     def _get_host_bits(ip, prefix):
@@ -127,15 +129,21 @@ class GenFiles:
 
         conf += "AllowedIPs = 0.0.0.0/0"
 
+        addr_str = ""
+
+        if len(self.extra_allowed_all) != 0:
+            for client_name, client_extra in self.extra_allowed_all.items():
+                print(client_name, client.name)
+                if client_name != client.name:
+                    for address in client_extra:
+                        addr_str += f",{address}"
+
         if server.extra_address and client.append_extra:
-            addr_str = ""
             # pylint: disable=consider-using-join
             for address in server.extra_address:
                 addr_str += f",{address}"
 
-            conf += addr_str
-
-        conf += "\n"
+        conf += f"{addr_str}\n"
 
         if server.proto == "tcp":
             conf += "PersistentKeepalive = 120\n"
@@ -151,6 +159,10 @@ class GenFiles:
 
     # pylint: disable=too-many-locals,too-many-statements,too-many-branches
     def _create_servers(self):
+        for client in self.clients:
+            if client.extra_allowed:
+                self.extra_allowed_all[client.name] = client.extra_allowed
+
         if self.want_bind:
             named_conf = ""
 

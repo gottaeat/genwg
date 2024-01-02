@@ -30,6 +30,10 @@ class ClientConfig:
         self.wgquick_path = None
         self.udp2raw_path = None
 
+        # extra Address and AllowedIPs logic
+        self.append_extra = None
+        self.extra_allowed = None
+
 
 # pylint: disable=too-many-instance-attributes,too-few-public-methods
 class ServerConfig:
@@ -60,6 +64,9 @@ class ServerConfig:
         self.pfx = None
         self.arpa_ptr = None
         self.last_ip = None
+
+        # extra Address and AllowedIPs logic
+        self.extra_address = None
 
 
 class ConfigYAML:
@@ -233,6 +240,23 @@ class ConfigYAML:
             # server.last_ip
             svconf.last_ip = svconf.net + 1
 
+            # server.extra_address
+            try:
+                yaml_extra_addr_list = server["extra_address"]
+
+                for address in yaml_extra_addr_list:
+                    try:
+                        if ipaddress.ip_network(address).prefixlen != 32:
+                            self.logger.error("%s is not a /32.", address)
+                    except ValueError:
+                        self.logger.exception("invalid network")
+
+                svconf.extra_address = yaml_extra_addr_list
+            except TypeError:
+                self.logger.exception("extra_address cannot be blank.")
+            except KeyError:
+                pass
+
             self.servers.append(svconf)
 
     # ClientConfig()
@@ -352,6 +376,35 @@ class ConfigYAML:
             if clconf.android and clconf.bind:
                 self.logger.error("android clients do not support bind")
 
+            # client.append_extra
+            try:
+                if type(client["append_extra"]).__name__ != "bool":
+                    self.logger.error("append_extra must be a bool")
+            except KeyError:
+                pass
+
+            try:
+                clconf.append_extra = client["append_extra"]
+            except KeyError:
+                clconf.append_extra = False
+
+            # client.extra_allowed
+            try:
+                yaml_extra_allow_list = client["extra_allowed"]
+
+                for address in yaml_extra_allow_list:
+                    try:
+                        if ipaddress.ip_network(address):
+                            pass
+                    except ValueError:
+                        self.logger.exception("invalid network")
+
+                clconf.extra_allowed = yaml_extra_allow_list
+            except TypeError:
+                self.logger.exception("extra_allowed cannot be blank.")
+            except KeyError:
+                pass
+
             self.clients.append(clconf)
 
     def parse_yaml(self):
@@ -393,12 +446,12 @@ class ConfigYAML:
             warnmsg = "a client wants bind but none of the servers are\n"
             warnmsg += "configured to serve local zones."
 
-            for line in warnmsg.strip("\n"):
+            for line in warnmsg.split("\n"):
                 self.logger.warning(line)
 
         if client_wants_tcp and not server_is_tcp:
             errmsg = "a client requested faketcp support but none of the\n"
             errmsg += "no server is configured to use tcp."
 
-            for line in errmsg.strip("\n"):
+            for line in errmsg.split("\n"):
                 self.logger.error(line)

@@ -322,10 +322,8 @@ class GenFiles:
                 sv_dict["udp2raw_secret"] = server.udp2raw_secret
                 sv_dict["udp2raw_port"] = server.udp2raw_port
 
-            try:
+            if server.extra_address:
                 sv_dict["extra_address"] = server.extra_address
-            except AttributeError:
-                pass
 
             yaml_dict["servers"].append(sv_dict)
 
@@ -346,15 +344,11 @@ class GenFiles:
                 cl_dict["wgquick_path"] = client.wgquick_path
                 cl_dict["udp2raw_path"] = client.udp2raw_path
 
-            try:
+            if client.append_extra:
                 cl_dict["append_extra"] = client.append_extra
-            except AttributeError:
-                pass
 
-            try:
+            if client.extra_allowed:
                 cl_dict["extra_allowed"] = client.extra_allowed
-            except AttributeError:
-                pass
 
             yaml_dict["clients"].append(cl_dict)
 

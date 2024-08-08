@@ -37,7 +37,7 @@ class Server:
         self.udp2raw = None
         self.mtu = None
         self.named = None
-        self.arpa_ptr = None
+        self.ptr = None
         self.extra_address = ""
         self.clients = []
         self.extra_allowed_all = {}
@@ -47,6 +47,7 @@ class Client:
     def __init__(self):
         self.name = None
         self.ip = None
+        self.host_bit = None
         self.udp2raw_log_path = None
         self.priv = None
         self.pub = None
@@ -110,6 +111,20 @@ class ConfigYAML:
             self.logger.error("%s is not a valid port number", port)
 
         return port
+
+    @staticmethod
+    def _get_host_bits(ip, prefix):
+        netmask = str(ipaddress.ip_network(f"{ip}/{prefix}", strict=False).netmask)
+
+        ip_split = list(map(int, str(ip).split(".")))
+        netmask_split = list(map(int, netmask.split(".")))
+
+        host_bits = [
+            ip_split & (255 - netmask_split)
+            for ip_split, netmask_split in zip(ip_split, netmask_split)
+        ]
+
+        return ".".join([str(bit) for bit in host_bits if bit != 0])
 
     def _parse_yaml(self):
         self.logger.info("processing servers")
@@ -246,9 +261,11 @@ class ConfigYAML:
                 # server.named.named_conf_dir
                 server.named.conf_dir = server_yaml["named"]["conf_dir"]
 
-                # server.arpa_ptr
-                server.arpa_ptr = re.sub(
-                    rf"^0/{server.pfx}\.", "", str(yaml_net.reverse_pointer)
+                # server.ptr
+                server.ptr = re.sub(
+                    rf"^0/{server.pfx}\.|\.in\-addr\.arpa",
+                    "",
+                    str(yaml_net.reverse_pointer),
                 )
 
             # server.extra_address
@@ -280,10 +297,6 @@ class ConfigYAML:
                 except KeyError:
                     self.logger.error("name is missing from the client YAML")
 
-                # client.ip
-                client.ip = server.last_ip + 1
-                server.last_ip += 1
-
                 # server prechecks
                 if server.named:
                     subd_regex = re.compile(r"^[a-zA-Z0-9-]{1,63}$")
@@ -291,6 +304,13 @@ class ConfigYAML:
                         self.logger.error(
                             "%s cannot be used as a subdomain", client.name
                         )
+
+                # client.ip
+                client.ip = server.last_ip + 1
+                server.last_ip += 1
+
+                # client.host_bit
+                client.host_bit = self._get_host_bits(client.ip, server.pfx)
 
                 # client.udp2raw_log_path
                 if server.udp2raw:

@@ -1,72 +1,46 @@
 import argparse
 import logging
 
-from .log import ShutdownHandler
-from .log import GenWGFormatter
-
+from .log import set_root_logger
 from .config import ConfigYAML
-from .genfiles import GenFiles
+from . import __version__ as pkg_version
 
 
-# pylint: disable=too-few-public-methods
 class CLI:
     def __init__(self):
         self.config_file = None
-        self.want_bind = None
         self.debug = None
-
         self.logger = None
 
     def _gen_args(self):
-        parser_desc = "WireGuard client and server configuartion generator."
-        parser_c_help = "Configuration YAML file."
-        parser_bind_help = "Generate BIND zones with A and PTR records for the clients."
-        parser_d_help = "Enable debugging."
+        parser_desc = f"wireguard config generator, ver. {pkg_version}"
+        parser_c_help = "configuration file."
+        parser_d_help = "enable debugging."
 
         parser = argparse.ArgumentParser(description=parser_desc)
         parser.add_argument("-c", type=str, required=True, help=parser_c_help)
-        parser.add_argument(
-            "--bind", dest="want_bind", action="store_true", help=parser_bind_help
-        )
         parser.add_argument("-d", dest="debug", action="store_true", help=parser_d_help)
         args = parser.parse_args()
 
         self.config_file = args.c
-        self.want_bind = args.want_bind
         self.debug = args.debug
 
     def run(self):
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
-
-        handler = logging.StreamHandler()
-        handler.setLevel(logging.DEBUG if self.debug else logging.INFO)
-
-        handler.setFormatter(GenWGFormatter())
-
-        self.logger.addHandler(handler)
-        self.logger.addHandler(ShutdownHandler())
-
-        self.logger.info("started genwg")
-
+        # parse args
         self._gen_args()
 
-        config = ConfigYAML(self.config_file)
-        config.want_bind = self.want_bind
-        config.logger = self.logger
-        config.parse_yaml()
+        # create root logger and init our own
+        set_root_logger(self.debug)
+        self.logger = logging.getLogger("genwg")
 
-        genfiles = GenFiles()
-        genfiles.want_bind = self.want_bind
-        genfiles.clients = config.clients
-        genfiles.servers = config.servers
+        # action
+        self.logger.info("started genwg ver. %s", pkg_version)
 
-        genfiles.logger = self.logger
-
-        genfiles.run()
+        # parse yaml
+        config = ConfigYAML(self.config_file, self.logger)
+        config.run()
 
 
 def run():
-    # pylint: disable=invalid-name
     c = CLI()
     c.run()

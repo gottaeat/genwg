@@ -2,7 +2,6 @@ import logging
 import sys
 
 
-# pylint: disable=too-few-public-methods
 class ANSIColors:
     RES = "\033[0;39m"
 
@@ -39,7 +38,6 @@ class ShutdownHandler(logging.StreamHandler):
 
 class GenWGFormatter(logging.Formatter):
     _FMT_DATE = "%H:%M:%S"
-
     _FMT_BEGIN = f"{c.BBLK}["
     _FMT_END = f"{c.BBLK}]{c.RES}"
 
@@ -59,3 +57,15 @@ class GenWGFormatter(logging.Formatter):
         return logging.Formatter(
             fmt=finfmt, datefmt=self._FMT_DATE, validate=True
         ).format(record)
+
+
+def set_root_logger(debug=False):
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG if debug else logging.INFO)
+
+    formatter = GenWGFormatter()
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+
+    logger.addHandler(handler)
+    logger.addHandler(ShutdownHandler())

@@ -1,0 +1,8 @@
+$TTL 5M
+@ IN SOA {{ server.name }}. root.{{ server.name }}. ( 1 1W 1D 4W 1W )
+@ IN NS {{ server.named.hostname }}.{{ server.name }}.
+
+1 IN PTR {{ server.named.hostname }}.{{ server.name }}.
+{% for client in server.clients %}
+{{ client.host_bit }} IN PTR {{ client.name }}.{{ server.name }}
+{% endfor %}

@@ -1,0 +1,8 @@
+$TTL 5M
+@ IN SOA {{ server.name }}. root.{{ server.name }}. ( 1 1W 1D 4W 1W )
+@ IN NS {{ server.named.hostname }}.{{ server.name }}.
+
+{{ server.named.hostname }} IN A {{ server.internal_ip }}
+{% for client in server.clients %}
+{{ client.name }} IN A {{ client.ip }}
+{% endfor %}

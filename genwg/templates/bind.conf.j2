@@ -1,0 +1,9 @@
+zone "{{ server.name }}" {
+    type master;
+    file "{{ server.named.conf_dir }}/zone/genwg/{{ server.name }}";
+};
+
+zone "{{ server.ptr }}.in-addr.arpa" {
+    type master;
+    file "{{ server.named.conf_dir }}/zone/genwg/{{ server.ptr }}";
+};

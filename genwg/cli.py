@@ -1,9 +1,10 @@
 import argparse
 import logging
 
-from .log import set_root_logger
-from .config import ConfigYAML
 from . import __version__ as pkg_version
+from .config import ConfigYAML
+from .genfiles import GenFiles
+from .log import set_root_logger
 
 
 class CLI:
@@ -39,6 +40,10 @@ class CLI:
         # parse yaml
         config = ConfigYAML(self.config_file, self.logger)
         config.run()
+
+        # generate files
+        genfiles = GenFiles(config, self.logger)
+        genfiles.run()
 
 
 def run():

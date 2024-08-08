@@ -1,0 +1,21 @@
+# - server : {{ server.name }}
+# - private: {{ server.priv }}
+# - public : {{ server.pub }}
+
+[Interface]
+PrivateKey = {{ server.priv }}
+Address = {{ server.internal_ip }}/{{ server.pfx }}{{ server.extra_address }}
+ListenPort = {{ server.port }}
+MTU = {{ server.mtu }}
+{% if server.udp2raw %}
+
+PreUp = udp2raw -s -l {{ server.ip }}:{{ server.udp2raw.port }} -r 127.0.0.1:{{ server.port }} -k "{{ server.udp2raw.secret }}" -a >/var/log/udp2raw.log 2>&1 &
+PostDown = pkill -15 udp2raw || true
+{% endif %}
+{% for client in server.clients %}
+
+# {{ client.name }}
+[Peer]
+PublicKey = {{ client.pub }}
+AllowedIPs = {{ client.ip }}/32{{ client.extra_allowed }}
+{% endfor %}

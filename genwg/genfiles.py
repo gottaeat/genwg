@@ -46,6 +46,7 @@ class GenFiles:
         )
 
         for server in self.servers:
+            # wireguard server peer configuration
             template = env.get_template("wg_server.conf.j2")
             result = template.render(server=server)
 
@@ -55,6 +56,7 @@ class GenFiles:
                 svfile.write(result)
 
             for client in server.clients:
+                # wireguard client peer configuration
                 template = env.get_template("wg_client.conf.j2")
                 result = template.render(server=server, client=client)
 
@@ -64,6 +66,38 @@ class GenFiles:
                     encoding="utf-8",
                 ) as clfile:
                     clfile.write(result)
+
+            if server.named:
+                # bind A zonefile
+                template = env.get_template("bind_a_zone.j2")
+                result = template.render(server=server)
+
+                with open(
+                    f"./genwg_dump/bind/zone/genwg/{server.name}", "w", encoding="utf-8"
+                ) as bindazonefile:
+                    bindazonefile.write(result)
+
+                # bind PTR zonefile
+                template = env.get_template("bind_ptr_zone.j2")
+                result = template.render(server=server)
+
+                with open(
+                    f"./genwg_dump/bind/zone/genwg/{server.ptr}",
+                    "w",
+                    encoding="utf-8",
+                ) as bindptrzonefile:
+                    bindptrzonefile.write(result)
+
+                # bind config
+                template = env.get_template("bind.conf.j2")
+                result = template.render(server=server)
+
+                with open(
+                    f"./genwg_dump/bind/{server.name}.conf",
+                    "w",
+                    encoding="utf-8",
+                ) as bindconfigfile:
+                    bindconfigfile.write(result)
 
     def run(self):
         self._create_dirs()

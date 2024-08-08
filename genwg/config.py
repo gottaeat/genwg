@@ -32,18 +32,21 @@ class Server:
         self.port = None
         self.net = None
         self.pfx = None
+        self.internal_ip = None
         self.last_ip = None
         self.udp2raw = None
         self.mtu = None
         self.named = None
         self.arpa_ptr = None
-        self.extra_address = []
+        self.extra_address = ""
         self.clients = []
+        self.extra_allowed_all = {}
 
 
 class Client:
     def __init__(self):
         self.name = None
+        self.ip = None
         self.udp2raw_log_path = None
         self.priv = None
         self.pub = None
@@ -53,7 +56,8 @@ class Client:
         self.bind = False
         self.root_zone_file = None
         self.append_extra = False
-        self.extra_allowed = []
+        self.extra_allowed = ""
+        self.server_extra_allowed = ""
 
 
 class ConfigYAML:
@@ -62,6 +66,7 @@ class ConfigYAML:
         self.logger = parent_logger.getChild(self.__class__.__name__)
 
         self.yaml_parsed = None
+        self.servers = []
 
     def _load_yaml(self):
         self.logger.info("loading configuration")
@@ -148,7 +153,7 @@ class ConfigYAML:
             except KeyError:
                 server.priv = self._gen_wg_priv()
 
-            # server.pub (internal)
+            # server.pub
             server.pub = self._gen_wg_pub(server.priv)
 
             # server.ip
@@ -168,13 +173,16 @@ class ConfigYAML:
 
             server.net = yaml_net.network_address
 
-            # server.pfx (internal)
+            # server.pfx
             server.pfx = yaml_net.prefixlen
 
             if server.pfx == 32:
                 self.logger.error("net prefix length cannot be 32")
 
-            # server.last_ip (internal)
+            # server.internal_ip
+            server.internal_ip = server.net + 1
+
+            # server.last_ip
             server.last_ip = server.net + 1
 
             # server.udp2raw
@@ -238,7 +246,7 @@ class ConfigYAML:
                 # server.named.named_conf_dir
                 server.named.conf_dir = server_yaml["named"]["conf_dir"]
 
-                # server.arpa_ptr (internal)
+                # server.arpa_ptr
                 server.arpa_ptr = re.sub(
                     rf"^0/{server.pfx}\.", "", str(yaml_net.reverse_pointer)
                 )
@@ -248,16 +256,14 @@ class ConfigYAML:
                 if not server_yaml["extra_address"]:
                     self.logger.error("extra_address cannot be blank")
 
-                for index, item in enumerate(server_yaml["extra_address"]):
+                for address in server_yaml["extra_address"]:
                     try:
-                        server_yaml["extra_address"][index] = ipaddress.ip_network(item)
+                        if ipaddress.ip_network(address).prefixlen != 32:
+                            self.logger.error("%s is not a /32", address)
                     except ValueError:
-                        self.logger.error("invalid ip address: %s", item)
+                        self.logger.error("invalid ip address: %s", address)
 
-                    if server_yaml["extra_address"][index].prefixlen != 32:
-                        self.logger.error("%s is not a /32", item)
-
-                server.extra_address = server_yaml["extra_address"]
+                    server.extra_address += f",{address}"
 
             # - - clients - - #
             for client_yaml in server_yaml["clients"]:
@@ -273,6 +279,10 @@ class ConfigYAML:
                     self.logger.info("%s", f"{ac.BWHI}→ {ac.BGRN}{client.name}{ac.RES}")
                 except KeyError:
                     self.logger.error("name is missing from the client YAML")
+
+                # client.ip
+                client.ip = server.last_ip + 1
+                server.last_ip += 1
 
                 # server prechecks
                 if server.named:
@@ -303,7 +313,7 @@ class ConfigYAML:
                 except KeyError:
                     client.priv = self._gen_wg_priv()
 
-                # client.pub (internal)
+                # client.pub
                 client.pub = self._gen_wg_pub(client.priv)
 
                 # client.android
@@ -367,9 +377,9 @@ class ConfigYAML:
                             if ipaddress.ip_network(address):
                                 pass
                         except ValueError:
-                            self.logger.error("invalid network")
+                            self.logger.error("invalid network: %s", address)
 
-                    client.extra_allowed = client_yaml["extra_allowed"]
+                        client.extra_allowed += f",{address}"
                 except TypeError:
                     self.logger.error("extra_allowed cannot be blank.")
                 except KeyError:
@@ -380,6 +390,18 @@ class ConfigYAML:
                 self.logger.info(
                     "%s", f"{ac.BWHI}→ {ac.BGRN}{client.name} {ac.BMGN}✓{ac.RES}"
                 )
+
+            # server.extra_allowed_all
+            for client in server.clients:
+                if client.extra_allowed:
+                    server.extra_allowed_all[client.name] = client.extra_allowed
+
+            # client_extra_allowed_all str
+            for client_name, client_extra in server.extra_allowed_all.items():
+                if client_name != client.name:
+                    client.server_extra_allowed += client_extra
+
+            self.servers.append(server)
 
     def run(self):
         self._load_yaml()

@@ -100,6 +100,8 @@ servers:
   port: 51821
   net: 10.0.1.0/24
   mtu: 1340
+  extra_allowed:
+    - 10.0.0.0/24
   named:
     hostname: debian12raw
     conf_dir: /etc/bind

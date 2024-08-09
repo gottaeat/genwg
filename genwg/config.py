@@ -127,8 +127,6 @@ class ConfigYAML:
         return ".".join([str(bit) for bit in host_bits if bit != 0])
 
     def _parse_yaml(self):
-        self.logger.info("processing servers")
-
         try:
             servers = self.yaml_parsed["servers"]
         except KeyError:
@@ -148,7 +146,7 @@ class ConfigYAML:
                 if len(server.name) >= 16 or " " in server.name or "/" in server.name:
                     self.logger.error("%s is not a valid interface name", server.name)
 
-                self.logger.info("%s", f"{ac.BRED}{server.name}{ac.RES}")
+                self.logger.info("processing %s", server.name)
             except KeyError:
                 self.logger.error("name is missing from the server YAML")
 
@@ -293,7 +291,7 @@ class ConfigYAML:
                     if not client.name:
                         self.logger.error("name cannot be blank")
 
-                    self.logger.info("%s", f"{ac.BWHI}→ {ac.BGRN}{client.name}{ac.RES}")
+                    self.logger.info(" - %s", client.name)
                 except KeyError:
                     self.logger.error("name is missing from the client YAML")
 
@@ -407,9 +405,6 @@ class ConfigYAML:
 
                 # append
                 server.clients.append(client)
-                self.logger.info(
-                    "%s", f"{ac.BWHI}→ {ac.BGRN}{client.name} {ac.BMGN}✓{ac.RES}"
-                )
 
             # server.extra_allowed_all
             for client in server.clients:

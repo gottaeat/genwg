@@ -25,40 +25,47 @@ class Named:
 
 class Server:
     def __init__(self):
+        # from yaml
         self.name = None
         self.priv = None
-        self.pub = None
         self.ip = None
         self.port = None
-        self.net = None
-        self.pfx = None
-        self.internal_ip = None
-        self.last_ip = None
+        self.net = None  # net key from yaml gets split for ease: {net}/{pfx}
+        self.pfx = None  # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         self.udp2raw = None
         self.mtu = None
         self.named = None
-        self.ptr = None
-        self.extra_address = ""
         self.clients = []
-        self.extra_allowed_all = {}
+        self.extra_allowed = []
+
+        # internal
+        self.pub = None
+        self.internal_ip = None
+        self.last_ip = None
+        self.ptr = None
+        self.extra_address_str = ""
 
 
 class Client:
     def __init__(self):
+        # from yaml
         self.name = None
-        self.ip = None
-        self.host_bit = None
-        self.udp2raw_log_path = None
         self.priv = None
-        self.pub = None
         self.android = None
         self.wgquick_path = None
         self.udp2raw_path = None
+        self.udp2raw_log_path = None
         self.bind = False
         self.root_zone_file = None
         self.append_extra = False
-        self.extra_allowed = ""
-        self.server_extra_allowed = ""
+        self.extra_allowed = []
+
+        # internal
+        self.ip = None
+        self.host_bit = None
+        self.pub = None
+        self.server_extra_allowed_str = ""
+        self.client_extra_allowed_str = ""
 
 
 class ConfigYAML:
@@ -266,11 +273,8 @@ class ConfigYAML:
                     str(yaml_net.reverse_pointer),
                 )
 
-            # server.extra_address
-            if "extra_address" in server_yaml.keys():
-                if not server_yaml["extra_address"]:
-                    self.logger.error("extra_address cannot be blank")
-
+            # server.extra_address_str
+            try:
                 for address in server_yaml["extra_address"]:
                     try:
                         if ipaddress.ip_network(address).prefixlen != 32:
@@ -278,7 +282,28 @@ class ConfigYAML:
                     except ValueError:
                         self.logger.error("invalid ip address: %s", address)
 
-                    server.extra_address += f",{address}"
+                    server.extra_address_str += f",{address}"
+            except TypeError:
+                self.logger.error("extra_address cannot be blank")
+            except KeyError:
+                pass
+
+            # server.extra_allowed
+            try:
+                for network in server_yaml["extra_allowed"]:
+                    try:
+                        network = ipaddress.ip_network(network)
+                    except ValueError:
+                        self.logger.error("invalid network: %s", network)
+
+                    if network.prefixlen == 32:
+                        self.logger.error("extra_allowed items cannot be /32's")
+
+                    server.extra_allowed.append(str(network))
+            except TypeError:
+                self.logger.error("extra_allowed cannot be blank")
+            except KeyError:
+                pass
 
             # - - clients - - #
             for client_yaml in server_yaml["clients"]:
@@ -388,16 +413,23 @@ class ConfigYAML:
                 except KeyError:
                     pass
 
+                if client.append_extra:
+                    client.client_extra_allowed_str += server.extra_address_str
+
                 # client.extra_allowed
                 try:
-                    for address in client_yaml["extra_allowed"]:
+                    for network in client_yaml["extra_allowed"]:
                         try:
-                            if ipaddress.ip_network(address):
+                            if ipaddress.ip_network(network):
                                 pass
                         except ValueError:
-                            self.logger.error("invalid network: %s", address)
+                            self.logger.error("invalid network: %s", network)
 
-                        client.extra_allowed += f",{address}"
+                        client.extra_allowed.append(network)
+                        client.server_extra_allowed_str += f",{network}"
+
+                        if network not in server.extra_allowed:
+                            server.extra_allowed.append(network)
                 except TypeError:
                     self.logger.error("extra_allowed cannot be blank.")
                 except KeyError:
@@ -406,16 +438,10 @@ class ConfigYAML:
                 # append
                 server.clients.append(client)
 
-            # server.extra_allowed_all
             for client in server.clients:
-                if client.extra_allowed:
-                    server.extra_allowed_all[client.name] = client.extra_allowed
-
-            # client_extra_allowed_all str
-            for client in server.clients:
-                for client_name, client_extra in server.extra_allowed_all.items():
-                    if client_name != client.name:
-                        client.server_extra_allowed += client_extra
+                for network in server.extra_allowed:
+                    if network not in client.extra_allowed:
+                        client.client_extra_allowed_str += f",{str(network)}"
 
             self.servers.append(server)
 

@@ -51,7 +51,8 @@ class Client:
         # from yaml
         self.name = None
         self.priv = None
-        self.android = None
+        self.wg_handled_dns = False
+        self.android = False
         self.wgquick_path = None
         self.udp2raw_path = None
         self.udp2raw_log_path = None
@@ -359,6 +360,15 @@ class ConfigYAML:
                 # client.pub
                 client.pub = self._gen_wg_pub(client.priv)
 
+                # client.wg_handled_dns
+                try:
+                    if type(client_yaml["wg_handled_dns"]).__name__ != "bool":
+                        self.logger.error("wg_handled_dns must be a bool")
+
+                    client.wg_handled_dns = client_yaml["wg_handled_dns"]
+                except KeyError:
+                    pass
+
                 # client.android
                 try:
                     if type(client_yaml["android"]).__name__ != "bool":
@@ -391,6 +401,11 @@ class ConfigYAML:
                     pass
 
                 if client.bind:
+                    if client.wg_handled_dns:
+                        self.logger.error(
+                            "cannot have bind and wg_handled_dns on at the same time"
+                        )
+
                     if client.android:
                         self.logger.error("android clients do not support bind")
 

@@ -38,7 +38,7 @@ class GenFiles:
         except:
             self.logger.exception("failed creating subdirectories")
 
-    def _create_servers(self):
+    def _template(self):
         env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(self._TEMPLATES_DIR),
             trim_blocks=True,
@@ -46,6 +46,8 @@ class GenFiles:
         )
 
         for server in self.servers:
+            self.logger.info("generating %s", server.name)
+
             # wireguard server peer configuration
             template = env.get_template("wg_server.conf.j2")
             result = template.render(server=server)
@@ -56,6 +58,7 @@ class GenFiles:
                 svfile.write(result)
 
             for client in server.clients:
+                self.logger.info(" - client: %s", client.name)
                 # wireguard client peer configuration
                 template = env.get_template("wg_client.conf.j2")
                 result = template.render(server=server, client=client)
@@ -69,6 +72,7 @@ class GenFiles:
 
             if server.named:
                 # bind A zonefile
+                self.logger.info(" - bind: A records")
                 template = env.get_template("bind_a_zone.j2")
                 result = template.render(server=server)
 
@@ -78,6 +82,7 @@ class GenFiles:
                     bindazonefile.write(result)
 
                 # bind PTR zonefile
+                self.logger.info(" - bind: PTR records")
                 template = env.get_template("bind_ptr_zone.j2")
                 result = template.render(server=server)
 
@@ -89,6 +94,7 @@ class GenFiles:
                     bindptrzonefile.write(result)
 
                 # bind config
+                self.logger.info(" - bind: ISC configuration")
                 template = env.get_template("bind.conf.j2")
                 result = template.render(server=server)
 
@@ -101,4 +107,4 @@ class GenFiles:
 
     def run(self):
         self._create_dirs()
-        self._create_servers()
+        self._template()

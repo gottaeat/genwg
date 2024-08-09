@@ -122,6 +122,20 @@ class GenFiles:
                 "mtu": server.mtu,
             }
 
+            if server.extra_allowed:
+                client_extra_allowed_all = []
+                for client in server.clients:
+                    if client.extra_allowed:
+                        for network in client.extra_allowed:
+                            client_extra_allowed_all.append(network)
+
+                for index, network in enumerate(server.extra_allowed):
+                    if network in client_extra_allowed_all:
+                        del server.extra_allowed[index]
+
+                if server.extra_allowed:
+                    sv_dict["extra_allowed"] = server.extra_allowed
+
             if server.named:
                 sv_dict["named"] = {
                     "hostname": server.named.hostname,
@@ -134,9 +148,9 @@ class GenFiles:
                     "port": server.udp2raw.port,
                 }
 
-            if server.extra_address:
-                sv_dict["extra_address"] = [
-                    x for x in server.extra_address.split(",") if x
+            if server.extra_address_str:
+                sv_dict["extra_address"] = sv_dict["extra_address"] = [
+                    x for x in server.extra_address_str.split(",") if x
                 ]
 
             sv_dict["clients"] = []
@@ -160,9 +174,7 @@ class GenFiles:
                         cl_dict["udp2raw_path"] = client.udp2raw_path
 
                 if client.extra_allowed:
-                    cl_dict["extra_allowed"] = [
-                        x for x in client.extra_allowed.split(",") if x
-                    ]
+                    cl_dict["extra_allowed"] = client.extra_allowed
 
                 sv_dict["clients"].append(cl_dict)
 

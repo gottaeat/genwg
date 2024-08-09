@@ -42,9 +42,9 @@ Endpoint = 127.0.0.1:50001
 {% else %}
 Endpoint = {{ server.ip }}:{{ server.port }}
 {% endif %}
-AllowedIPs = 0.0.0.0/0{{client.server_extra_allowed}}
+AllowedIPs = 0.0.0.0/0{{ client.server_extra_allowed }}
 {% if server.udp2raw %}
-PersistentKeepalive = 25
+PersistentKeepalive = 120
 {% else %}
-PersistentKeepalive = 100
+PersistentKeepalive = 25
 {% endif %}

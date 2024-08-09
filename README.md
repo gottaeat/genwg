@@ -58,16 +58,17 @@ from the server's `extra_allowed`.
 | port   | required  | `int` port for `udp2raw` to listen on                      |
 
 #### clients
-| key              | necessity                                 | description                                                                                                                                      |
-|------------------|-------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| name             | required                                  | `str` name for the client peer, only matters when server configuration requested bind9 zones to be generated                                     |
-| priv             | optional                                  | `str` wireguard private key for the client peer, will be generated if none provided                                                              |
-| bind             | optional                                  | `bool` if set to true, client configuration will have `PreUp` and `PreDown` hooks added to it to have the root zone forwarded to the server peer |
-| root_zone_file   | required if `bind`                        | `str` path to the file that contains the root hints
-| udp2raw_log_path | required if `server.udp2raw`              | `str` path to dump the udp2raw stdin and stderr
-| android          | optional                                  | `str` declare client an android device
-| wgquick_path     | required if `android` && `server.udp2raw` | `str` path to the `wg-quick` binary
-| udp2raw_path     | required if `android` && `server.udp2raw` | `str` path to the `udp2raw` binary
+| key              | necessity                                 | description                                                                                                                                                       |
+|------------------|-------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name             | required                                  | `str` name for the client peer, only matters when server configuration requested bind9 zones to be generated                                                      |
+| priv             | optional                                  | `str` wireguard private key for the client peer, will be generated if none provided                                                                               |
+| wg_handled_dns   | optional                                  | `bool` if set to true, the DNS ini key will be added and set to the internal ip of the wireguard interface for wg-quick to handle it in the platform specific way |
+| bind             | optional                                  | `bool` if set to true, client configuration will have `PreUp` and `PreDown` hooks added to it to have the root zone forwarded to the server peer                  |
+| root_zone_file   | required if `bind`                        | `str` path to the file that contains the root hints                                                                                                               |
+| udp2raw_log_path | required if `server.udp2raw`              | `str` path to dump the udp2raw stdin and stderr                                                                                                                   |
+| android          | optional                                  | `str` declare client an android device                                                                                                                            |
+| wgquick_path     | required if `android` && `server.udp2raw` | `str` path to the `wg-quick` binary                                                                                                                               |
+| udp2raw_path     | required if `android` && `server.udp2raw` | `str` path to the `udp2raw` binary                                                                                                                                |
 
 __WARNING__: doing wireguard over faketcp on android may require root privileges depending on your device firmware.
 

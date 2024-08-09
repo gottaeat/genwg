@@ -24,8 +24,9 @@ PostUp = rndc reload
 PreDown = mkdir -p "/tmp/bind"
 PreDown = echo 'zone "." { type hint; file "{{ client.root_zone_file }}"; };' > "/tmp/bind/named.conf.local"
 PreDown = rndc reload
-{% else %}
-DNS = {{ server.net + 1 }}
+{% endif %}
+{% if client.wg_handled_dns %}
+DNS = {{ server.internal_ip }}
 {% endif %}
 {% if server.udp2raw and not client.android %}
 

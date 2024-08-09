@@ -161,6 +161,9 @@ class GenFiles:
                 if client.append_extra:
                     cl_dict["append_extra"] = True
 
+                if client.wg_handled_dns:
+                    cl_dict["wg_handled_dns"] = True
+
                 if client.bind:
                     cl_dict["bind"] = True
                     cl_dict["root_zone_file"] = client.root_zone_file

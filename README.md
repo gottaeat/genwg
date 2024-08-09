@@ -17,6 +17,9 @@ and system resolver awareness.
   __(linux only)__
 - yaml dump of the state after execution.
 
+as Termux and alike do not have `udp2raw` packaged, you can find a build
+script and a prebuilt aarch64 elf binary.
+
 ## installation
 ```sh
 git clone --depth=1 https://github.com/gottaeat/genwg

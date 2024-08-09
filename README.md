@@ -27,17 +27,23 @@ pip install .
 ## configuration
 ### specification
 #### servers
-| key           | necessity | description                                                                                                              |
-|---------------|-----------|--------------------------------------------------------------------------------------------------------------------------|
-| name          | required  | `str` name for the interface                                                                                             |
-| priv          | optional  | `str` wireguard private key for the server peer, will be generated if none provided                                      |
-| ip            | required  | `str` public ip address of the wireguard server peer                                                                     |
-| port          | required  | `int` port for the server peer to listen on                                                                              |
-| net           | required  | `str` vpn subnet in cidr notation                                                                                        |
-| mtu           | required  | `int` mtu value for the interface: max 1340 for faketcp and 1460 for udp                                                 |
-| extra_address | required  | `str` extra /32 to be appended to the Address line of the server peer and to the AllowedIPs of the clients that opted in |
-| named         | optional  | look below                                                                                                               |
-| udp2raw       | optional  | look below                                                                                                               |
+| key           | necessity | description                                                                                                                |
+|---------------|-----------|----------------------------------------------------------------------------------------------------------------------------|
+| name          | required  | `str` name for the interface                                                                                               |
+| priv          | optional  | `str` wireguard private key for the server peer, will be generated if none provided                                        |
+| ip            | required  | `str` public ip address of the wireguard server peer                                                                       |
+| port          | required  | `int` port for the server peer to listen on                                                                                |
+| net           | required  | `str` vpn subnet in cidr notation                                                                                          |
+| mtu           | required  | `int` mtu value for the interface: max 1340 for faketcp and 1460 for udp                                                   |
+| extra_address | optional  | `str` extra /32's to be appended to the Address line of the server peer and to the AllowedIPs of the clients that opted in |
+| extra_allowed | optional  | `str` extra non-/32 v4's to be added to the AllowedIPs of the clients in the configuration of the client itself            |
+| named         | optional  | look below                                                                                                                 |
+| udp2raw       | optional  | look below                                                                                                                 |
+
+__WARNING__: if the same v4 that resides within `extra_allowed` of a server
+exist in the `extra_allowed` of the client, this network will not be added to
+that client's network, and when dumping back the yaml, this v4 will be removed
+from the server's `extra_allowed`.
 
 #### named
 | key      | necessity | description |

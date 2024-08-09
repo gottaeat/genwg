@@ -4,7 +4,7 @@
 
 [Interface]
 PrivateKey = {{ server.priv }}
-Address = {{ server.internal_ip }}/{{ server.pfx }}{{ server.extra_address }}
+Address = {{ server.internal_ip }}/{{ server.pfx }}{{ server.extra_address_str }}
 ListenPort = {{ server.port }}
 MTU = {{ server.mtu }}
 {% if server.udp2raw %}
@@ -17,5 +17,5 @@ PostDown = pkill -15 udp2raw || true
 # {{ client.name }}
 [Peer]
 PublicKey = {{ client.pub }}
-AllowedIPs = {{ client.ip }}/32{{ client.extra_allowed }}
+AllowedIPs = {{ client.ip }}/32{{ client.server_extra_allowed_str }}
 {% endfor %}

@@ -412,9 +412,10 @@ class ConfigYAML:
                     server.extra_allowed_all[client.name] = client.extra_allowed
 
             # client_extra_allowed_all str
-            for client_name, client_extra in server.extra_allowed_all.items():
-                if client_name != client.name:
-                    client.server_extra_allowed += client_extra
+            for client in server.clients:
+                for client_name, client_extra in server.extra_allowed_all.items():
+                    if client_name != client.name:
+                        client.server_extra_allowed += client_extra
 
             self.servers.append(server)
 

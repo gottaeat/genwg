@@ -124,7 +124,7 @@ servers:
 - name: wg0guest
   ip: 1.1.1.1
   port: 51822
-  net 10.0.2.0/24
+  net: 10.0.2.0/24
   mtu: 1420
   clients:
     - name: johnguest

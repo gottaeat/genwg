@@ -1,0 +1,43 @@
+name: publish release on pypi
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  pypi-publish:
+    runs-on: ubuntu-latest
+
+    environment:
+      name: pypi
+      url: https://pypi.org/p/genwg
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: set up python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: install deps
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install build
+
+      - name: build package
+        run: |
+          python3 -m build
+
+      - name: publish package to pypi
+        uses: pypa/gh-action-pypi-publish@release/v1
+

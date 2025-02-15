@@ -6,6 +6,7 @@ import subprocess
 
 import yaml
 
+from .dnsops import DNSOps
 from .log import ANSIColors
 
 ac = ANSIColors()
@@ -29,6 +30,7 @@ class Server:
         self.name = None
         self.priv = None
         self.ip = None
+        self.is_fqdn = None
         self.port = None
         self.net = None  # net key from yaml gets split for ease: {net}/{pfx}
         self.pfx = None  # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -189,7 +191,9 @@ class ConfigYAML:
             try:
                 server.ip = ipaddress.ip_address(server_yaml["ip"])
             except ValueError:
-                if self._is_fqdn(server.ip):
+                server.is_fqdn = self._is_fqdn(server_yaml["ip"])
+
+                if server.is_fqdn:
                     server.ip = server_yaml["ip"]
                 else:
                     self.logger.error(
@@ -242,6 +246,23 @@ class ConfigYAML:
                         server.udp2raw.secret = server_yaml["udp2raw"]["secret"]
                 except KeyError:
                     server.udp2raw.secret = secrets.token_urlsafe(12)
+
+                if server.is_fqdn:
+                    # fmt: off
+                    warn_msg = f"{server.ip} is a fqdn!\n"
+                    warn_msg += "udp2raw and the routes we install requires an ip address.\n"
+                    warn_msg += "we will use the first A record returned from CF, if not, \n"
+                    warn_msg += "the first AAAA."
+                    # fmt: on
+
+                    for line in warn_msg.split("\n"):
+                        self.logger.warning(line)
+
+                    dnsops = DNSOps()
+                    server.ip = dnsops.resolve_dns(server.ip)
+                    self.logger.warning(
+                        "%s is the ip chosen for %s", server.ip, server.name
+                    )
 
             # server.mtu
             try:

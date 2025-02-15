@@ -48,6 +48,12 @@ exist in the `extra_allowed` of the client, this network will not be added to
 that client's network, and when dumping back the yaml, this v4 will be removed
 from the server's `extra_allowed`.
 
+__WARNING 2__: if a server statement has the `ip` set to a fqdn but also
+requests `udp2raw` support, the fqdn will be queried @1.1.1.1 and the A record
+first returned will be used instead of the fqdn (if not, the first AAAA). this
+is due to the specific route added for the real `Endpoint` requiring an actual
+ip address. __specifying a fqdn for a faketcp wg tunnel is not a good idea.__
+
 #### named
 | key      | necessity | description |
 |----------|-----------|-------------|

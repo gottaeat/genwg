@@ -134,6 +134,14 @@ class ConfigYAML:
 
         return ".".join([str(bit) for bit in host_bits if bit != 0])
 
+    @staticmethod
+    def _is_fqdn(hostname):
+        fqdn_regex = re.compile(
+            r"^(?=.{1,253}$)(?:(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.)+[A-Za-z]{2,}$"
+        )
+
+        return bool(fqdn_regex.match(hostname))
+
     def _parse_yaml(self):
         try:
             servers = self.yaml_parsed["servers"]
@@ -181,7 +189,12 @@ class ConfigYAML:
             try:
                 server.ip = ipaddress.ip_address(server_yaml["ip"])
             except ValueError:
-                self.logger.error("invalid ip address")
+                if self._is_fqdn(server.ip):
+                    server.ip = server_yaml["ip"]
+                else:
+                    self.logger.error(
+                        "%s is neither an ip address nor a fqdn", server_yaml["ip"]
+                    )
 
             # server.port
             server.port = self._check_port(server_yaml["port"])

@@ -34,7 +34,7 @@ pip install .
 |---------------|-----------|----------------------------------------------------------------------------------------------------------------------------|
 | name          | required  | `str` name for the interface                                                                                               |
 | priv          | optional  | `str` wireguard private key for the server peer, will be generated if none provided                                        |
-| ip            | required  | `str` public ip address of the wireguard server peer                                                                       |
+| ip            | required  | `str` public ip address or the FQDN of the wireguard server peer                                                           |
 | port          | required  | `int` port for the server peer to listen on                                                                                |
 | net           | required  | `str` vpn subnet in cidr notation                                                                                          |
 | mtu           | required  | `int` mtu value for the interface: max 1340 for faketcp and 1460 for udp                                                   |
@@ -47,6 +47,9 @@ __WARNING__: if the same v4 that resides within `extra_allowed` of a server
 exist in the `extra_allowed` of the client, this network will not be added to
 that client's network, and when dumping back the yaml, this v4 will be removed
 from the server's `extra_allowed`.
+
+__WARNING 2__: as the static routes installed for faketcp wrapped tunnels,
+setting the endpoint to an FQDN is not possible.
 
 #### named
 | key      | necessity | description |

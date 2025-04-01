@@ -44,6 +44,7 @@ class Server:
         self.last_ip = None
         self.ptr = None
         self.extra_address_str = ""
+        self.ip_is_fqdn = None
 
 
 class Client:
@@ -121,6 +122,11 @@ class ConfigYAML:
         return port
 
     @staticmethod
+    def _is_fqdn(string):
+        fqdn_regex = r"^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
+        return bool(re.match(fqdn_regex, string)) and len(string) <= 253
+
+    @staticmethod
     def _get_host_bits(ip, prefix):
         netmask = str(ipaddress.ip_network(f"{ip}/{prefix}", strict=False).netmask)
 
@@ -181,7 +187,14 @@ class ConfigYAML:
             try:
                 server.ip = ipaddress.ip_address(server_yaml["ip"])
             except ValueError:
-                self.logger.error("invalid ip address")
+                if self._is_fqdn(server_yaml["ip"]):
+                    self.logger.info("%s is an fqdn", server_yaml["ip"])
+                    server.ip_is_fqdn = True
+                    server.ip = server_yaml["ip"]
+                else:
+                    self.logger.error(
+                        "%s is neither a valip ip address nor a fdqn", server_yaml["ip"]
+                    )
 
             # server.port
             server.port = self._check_port(server_yaml["port"])
@@ -208,6 +221,11 @@ class ConfigYAML:
 
             # server.udp2raw
             if "udp2raw" in server_yaml.keys():
+                if server.ip_is_fqdn:
+                    self.logger.error(
+                        "cannot have a fqdn for the server on faketcp wrapped tunnels."
+                    )
+
                 server.udp2raw = UDP2RAW()
 
                 # server.udp2raw.port
